@@ -1,0 +1,6 @@
+[submodule "src/evaluations/state-of-the-art/uav_data_harvesting"]
+	path = src/evaluations/state-of-the-art/uav_data_harvesting
+	url = https://github.com/hbayerlein/uav_data_harvesting.git
+[submodule "src/evaluations/state-of-the-art/uav-ddpg"]
+	path = src/evaluations/state-of-the-art/uav-ddpg
+	url = https://github.com/fangvv/UAV-DDPG.git
