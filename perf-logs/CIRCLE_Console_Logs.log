@@ -1,0 +1,19 @@
+(circle-soa-playground) bkeshav1@en4192805ul:~/workspace/repos/Odin/src/uav-mobility/soa-evaluations$ python CIRCLESoAEvaluation.py
+[INFO] LinkPerformanceEvaluator Initialization: Bringing things up...
+[INFO] CIRCLESoAEvaluation evaluate: UAVs = 1 | GNs/Requests = 1000 | Data Length = 1.0 Mb | Average Power Consumption = 1317.4215242600967 W | Comm Times = 424.9545559342494 s | Wait Times = 184703.81088152956 s | Total Times = 185128.76543746382 s
+[INFO] CIRCLESoAEvaluation evaluate: UAVs = 1 | GNs/Requests = 1000 | Data Length = 10.0 Mb | Average Power Consumption = 1318.1199496768195 W | Comm Times = 414.02002055386345 s | Wait Times = 56799.25949354902 s | Total Times = 57213.27951410288 s
+[INFO] CIRCLESoAEvaluation evaluate: UAVs = 1 | GNs/Requests = 1000 | Data Length = 100.0 Mb | Average Power Consumption = 1319.003118757231 W | Comm Times = 420.8718042876855 s | Wait Times = 91.06891555812223 s | Total Times = 511.9407198458077 s
+(circle-soa-playground) bkeshav1@en4192805ul:~/workspace/repos/Odin/src/uav-mobility/soa-evaluations$
+
+(circle-soa-playground) bkeshav1@en4192805ul:~/workspace/repos/Odin/src/uav-mobility/soa-evaluations$ python CIRCLESoAEvaluation.py
+[INFO] LinkPerformanceEvaluator Initialization: Bringing things up...
+[INFO] CIRCLESoAEvaluation evaluate: UAVs = 2 | GNs/Requests = 1000 | Data Length = 1.0 Mb | Average Power Consumption = 1320.2027928660702 W | Comm Times = 292.9988519396207 s | Wait Times = 48059.71961080628 s | Total Times = 48352.71846274591 s
+[INFO] CIRCLESoAEvaluation evaluate: UAVs = 2 | GNs/Requests = 1000 | Data Length = 10.0 Mb | Average Power Consumption = 1319.192604578332 W | Comm Times = 256.43810879653466 s | Wait Times = 612.4063258452252 s | Total Times = 868.8444346417597 s
+[INFO] CIRCLESoAEvaluation evaluate: UAVs = 2 | GNs/Requests = 1000 | Data Length = 100.0 Mb | Average Power Consumption = 1321.709414178199 W | Comm Times = 262.80096892078245 s | Wait Times = 17.59076517023704 s | Total Times = 280.3917340910195 s
+(circle-soa-playground) bkeshav1@en4192805ul:~/workspace/repos/Odin/src/uav-mobility/soa-evaluations$
+
+(circle-soa-playground) bkeshav1@en4192805ul:~/workspace/repos/Odin/src/uav-mobility/soa-evaluations$ python CIRCLESoAEvaluation.py
+[INFO] LinkPerformanceEvaluator Initialization: Bringing things up...
+[INFO] CIRCLESoAEvaluation evaluate: UAVs = 3 | GNs/Requests = 1000 | Data Length = 1.0 Mb | Average Power Consumption = 1318.260078007798 W | Comm Times = 223.90484297425317 s | Wait Times = 22641.432944256878 s | Total Times = 22865.33778723113 s
+[INFO] CIRCLESoAEvaluation evaluate: UAVs = 3 | GNs/Requests = 1000 | Data Length = 10.0 Mb | Average Power Consumption = 1318.3870921862629 W | Comm Times = 196.79361502163135 s | Wait Times = 140.43625955065852 s | Total Times = 337.22987457228993 s
+[INFO] CIRCLESoAEvaluation evaluate: UAVs = 3 | GNs/Requests = 1000 | Data Length = 100.0 Mb | Average Power Consumption = 1324.0499030374374 W | Comm Times = 214.1082791256487 s | Wait Times = 9.287944144043177 s | Total Times = 223.39622326969186 s
