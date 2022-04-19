@@ -8,7 +8,7 @@
 				inner on trajectories
 	A figure would explain this better
 7. Slide 11 explain SCA better
-nonconvex -> iterative optimization -> convex approximations at a local point -> keep doing until convergence. Also, merge SCA channel model inaccuracy in point 1 so that itt's under one heading
+nonconvex -> iterative optimization -> convex approximations at a local point -> keep doing until convergence. Also, merge SCA channel model inaccuracy in point 1 so that it's under one heading
 8. Slide 15: We combines SMDP with a variant of CSO which allows us to capture realistic channel models, which you can't do with SCA
 9. Slide 16: bring queue management into your talk on multi-UAV heuristics
 10. Slide 19: Use a figure to explain the distance, angle, LoS, NLoS, probabilities, etc. Use a citation here.

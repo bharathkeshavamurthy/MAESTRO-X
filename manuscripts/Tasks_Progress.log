@@ -1,0 +1,9 @@
+15. State the problem and the Lagrangian and the dual via subgradient ascent 
+18. A figure for the inner problems as well (HCSO): start with rough traj and then increase the resolution
+20. Wait plots legend too small, yellow is not the right color
+24. Slide 32: two cases 0.1 and >1
+25. Split the decode and forward in Slide 33
+Add GN, UAV and BS instead of dots; Remove legend details
+26. Refs in Slide 34: move to next one before perf
+27. Remove MAESTRO-Xalpha and MAESTRO-Xbeta
+28. Slide 37 citations: SoA are adaptations of their papers | Adaptation of SCA/CIRCLE/CSCA
