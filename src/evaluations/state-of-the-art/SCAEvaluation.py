@@ -4,7 +4,7 @@ framework in the state-of-the-art. We incorporate the channel model, UAV power &
 our paper in this SCA framework's operational/functional performance evaluation to make all the comparisons fair.
 
 Reference Paper:
-                @ARTICLE{8663615,
+                @ARTICLE{SCA,
                   author={Zeng, Yong and Xu, Jie and Zhang, Rui},
                   journal={IEEE Transactions on Wireless Communications},
                   title={Energy Minimization for Wireless Communication With Rotary-Wing UAV},
@@ -55,7 +55,7 @@ a, m, m_ip, n = 1e3, 14, 2, 30
 r_bounds, th_bounds, h_uavs, h_gns = (-a, a), (0, 2 * pi), 200.0, 0.0
 bw, snr_0, a_los, a_nlos, kappa, m_post = 5e6, 1e4, 2.0, 2.8, 0.2, m_ip * (m + 2)
 utip, v0, p1, p2, p3, v_min, v_max, v_num = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 10
-data_len, arr_rates, num_uavs, num_gns = [1e6, 10e6, 100e6][1], {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}, 1, n
+data_len, arr_rates, num_uavs, num_gns = [1e6, 10e6, 100e6][1], {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}, 2, n
 pc, k_1, k_2, z_1, z_2, conf, tol, cvx_conf, cvx_tol = 90.0, 1.0, np.log(100) / 90.0, 9.61, 0.16, 3, 1e-3, 1, 1000.0
 
 """
@@ -278,9 +278,9 @@ def solve(u, qi, qf, *args):
     tmp_y1, tmp_y2, tmp_y3 = np.sqrt(y_), np.sqrt(y_) * 2.0, np.add(y_, np.multiply(-1 / (v0 ** 2), np.square(delta_)))
 
     nrg = p2 * cp.sum(y_var, axis=0) + \
-        p3 * cp.sum(cp.multiply(t_var.value, cp.power(v_var, 3)), axis=0) + \
-        p1 * cp.sum(t_var, axis=0) + pc * cp.sum(cp.sum(tau_var, axis=1), axis=0) + \
-        p1 * cp.sum((3.0 * cp.multiply(t_var.value, cp.power(v_var, 2))) / (utip ** 2.0), axis=0)
+          p3 * cp.sum(cp.multiply(t_var.value, cp.power(v_var, 3)), axis=0) + \
+          p1 * cp.sum(t_var, axis=0) + pc * cp.sum(cp.sum(tau_var, axis=1), axis=0) + \
+          p1 * cp.sum((3.0 * cp.multiply(t_var.value, cp.power(v_var, 2))) / (utip ** 2.0), axis=0)
 
     d_ct = cp.sum(s_ + cp.multiply(np.sqrt(s_) * 2.0, cp.sqrt(s_var) - np.sqrt(s_)), axis=0)
     s_ct = np.multiply(np.square(y_var.value), tmp_y3 + np.multiply(tmp_y2, y_var.value - tmp_y1) +
@@ -367,7 +367,8 @@ def evaluate():
     avg_w_time = np.mean(w_times, axis=0)
     avg_t_time = np.mean(np.add(s_times, w_times), axis=0)
     avg_pwr = np.mean([np.mean(np.divide(nrgs[_u], tf.reduce_sum(t[_u]).numpy())) for _u in range(n_u)]) + \
-        np.nan_to_num(tf.divide(tf.reduce_mean(tf.multiply(tp, mobility_pwr(0.0)), axis=0), tf.reduce_sum(tp)).numpy())
+              np.nan_to_num(
+                  tf.divide(tf.reduce_mean(tf.multiply(tp, mobility_pwr(0.0)), axis=0), tf.reduce_sum(tp)).numpy())
 
     print(f'[INFO] SCAEvaluation evaluate: UAVs = {n_u} | GNs/Requests = {n_k} | '
           f'Data Length = {data_len / 1e6} Mb | Average Power Consumption = {avg_pwr} W | '

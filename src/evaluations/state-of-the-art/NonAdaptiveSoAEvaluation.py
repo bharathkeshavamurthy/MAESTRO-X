@@ -4,7 +4,7 @@ models. A few of these adaptations include "static bandwidth allocations", "obst
 power & mobility models", "queueing and scheduling in the Link Layer", and "delay analysis".
 
 Reference Paper:
-                @ARTICLE{9119191,
+                @ARTICLE{CSCA,
                 author={Hu, Qiyu and Cai, Yunlong and Liu, An and Yu, Guanding and Li, Geoffrey Ye},
                 journal={IEEE Transactions on Wireless Communications},
                 title={Low-Complexity Joint Resource Allocation and Trajectory Design for UAV-Aided Relay Networks With
@@ -214,8 +214,8 @@ def surrogate_1(_m, tau, z_uavs_, z_gns_, z_uavs_t_):
 def surrogate_2(tau, z_uav_, z_uav_t_):
     m, d_loc_diff = num_uavs, tau * d(z_uav_, z_uav_t_) ** 2
     ph = ((snr_0 * (gain_aprx(z_uav_, z_uav_t_, z_bs) - gain(z_uav_t_, z_bs))) / (1 + snr_0 * gain(z_uav_t_, z_bs))) - \
-        d_loc_diff + ((snr_0 * np.matmul(np.transpose(-gain_loc_d(z_uav_t_, z_bs)), (z_uav_ - z_uav_t_))) /
-                      (1 + snr_0 * gain(z_uav_t_, z_bs)))
+         d_loc_diff + ((snr_0 * np.matmul(np.transpose(-gain_loc_d(z_uav_t_, z_bs)), (z_uav_ - z_uav_t_))) /
+                       (1 + snr_0 * gain(z_uav_t_, z_bs)))
     return bw * ph + throughput(z_uav_t_, z_bs)
 
 
@@ -296,7 +296,7 @@ def work(i, fn, tau_t, zs_t, vs_t, r_u_s_t, r_c_t, pipe):
 
         pipe.send((i, zs.value, vs.value, r_u_s.value, r_c.value))
         z_hats.value, z_dots.value, z_tildes.value, z_bars.value, v_tildes.value, \
-            v_bars.value, r_u_hats.value, r_u_tildes.value, r_c_tildes.value = pipe.recv()
+        v_bars.value, r_u_hats.value, r_u_tildes.value, r_c_tildes.value = pipe.recv()
 
         lbd2s.value += zs.value - z_bars.value
         lbd9s.value += v_bars.value - vs.value

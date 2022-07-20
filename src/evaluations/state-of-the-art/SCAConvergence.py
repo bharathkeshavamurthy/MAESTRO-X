@@ -7,7 +7,7 @@ the SCA algorithm determines the UAV's "optimal" trajectory segments (and their 
 script then evaluates the convergence performance of this "path planning" for benchmarking w.r.t CSO, HCSO, and others.
 
 Reference Paper:
-                @ARTICLE{8663615,
+                @ARTICLE{SCA,
                   author={Zeng, Yong and Xu, Jie and Zhang, Rui},
                   journal={IEEE Transactions on Wireless Communications},
                   title={Energy Minimization for Wireless Communication With Rotary-Wing UAV},
@@ -54,15 +54,15 @@ Configurations-II: Deployment Parameters
 
 pi = np.pi
 np.random.seed(6)
-a, m, m_ip, n = 1e3, 14, 2, 80
+a, m, m_ip, n = 1e3, 126, 2, 400
 h_bs, h_uav, h_gns = 80.0, 200.0, 0.0
 r_bounds, th_bounds = (-a, a), (0, 2 * pi)
 x_g = tf.constant([[-570.0, 601.0]], dtype=tf.float64)
 bw, snr_0, a_los, a_nlos, kappa = 5e6, 1e4, 2.0, 2.8, 0.2
-k_1, k_2, z_1, z_2, conf, tol = 1.0, np.log(100) / 90.0, 9.61, 0.16, 5, 1e-5
+k_1, k_2, z_1, z_2, conf, tol = 1.0, np.log(100) / 90.0, 9.61, 0.16, 10, 1e-5
 p_avg, m_post = np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1], (m + 2) * m_ip
-utip, v0, p1, p2, p3, v_min, v_max, v_num, omega = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 10, 1.0
-nu, data_len, arr_rates = 0.99 / p_avg, [1e6, 10e6, 100e6][0], {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}
+utip, v0, p1, p2, p3, v_min, v_max, v_num, omega = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 25, 1.0
+nu, data_len, arr_rates = 0.99 / p_avg, [1e6, 10e6, 100e6][1], {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}
 x_0, x_m = tf.constant([[400.0, -300.0]], dtype=tf.float64), tf.constant([[-387.50, 391.50]], dtype=tf.float64)
 
 """
@@ -73,6 +73,53 @@ UAV Mobility Power Computation Routine
 def mobility_pwr(v):
     return (p1 * (1 + ((3 * (v ** 2)) / (utip ** 2)))) + \
            (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5) + (p3 * (v ** 3))
+
+
+"""
+Random Trajectories Generation 
+"""
+
+
+# noinspection PyMethodMayBeStatic
+class RandomTrajectoriesGeneration(object):
+
+    def __enter__(self):
+        return self
+
+    def __generate(self, traj):
+        (r_min, r_max), (th_min, th_max) = r_bounds, th_bounds
+        r = tf.random.uniform(shape=[m, 1], minval=r_min, maxval=r_max, dtype=tf.float64)
+        theta = tf.random.uniform(shape=[m, 1], minval=th_min, maxval=th_max, dtype=tf.float64)
+        tf.compat.v1.assign(traj, tf.concat([tf.multiply(r, tf.math.cos(theta)), tf.multiply(r, tf.math.sin(theta))],
+                                            axis=1), validate_shape=True, use_locking=True)
+
+    def generate(self, n_w):
+        trajs = tf.Variable(tf.zeros(shape=(int(n / 2), m, 2), dtype=tf.float64), dtype=tf.float64)
+        with ThreadPoolExecutor(max_workers=n_w) as executor:
+            for i in range(int(n / 2)):
+                executor.submit(self.__generate, trajs[i, :])
+        return trajs
+
+    def __optimize(self, traj, opt_traj):
+        i_s = [_ for _ in range(traj.shape[0] + 2)]
+        x = np.linspace(0, (len(i_s) - 1), (m_ip * len(i_s)), dtype=np.float64)
+        tf.compat.v1.assign(opt_traj, tf.clip_by_norm(tf.constant(list(zip(
+            UnivariateSpline(i_s, tf.concat([x_0[:, 0], traj[:, 0], x_m[:, 0]], axis=0), s=0)(x),
+            UnivariateSpline(i_s, tf.concat([x_0[:, 1], traj[:, 1], x_m[:, 1]], axis=0), s=0)(x)))), a, axes=1),
+                            validate_shape=True, use_locking=True)
+
+    def optimize(self, trajs, n_w):
+        opt_trajs = tf.Variable(tf.zeros(shape=[int(n / 2), m_post, 2], dtype=tf.float64), dtype=tf.float64)
+        with ThreadPoolExecutor(max_workers=n_w) as executor:
+            for i in range(int(n / 2)):
+                executor.submit(self.__optimize, trajs[i, :], opt_trajs[i, :])
+        return opt_trajs
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_tb is not None:
+            print(f'[ERROR] RandomTrajectoriesGeneration Termination: Tearing things down - '
+                  f'Exception Type = {exc_type} | Exception Value = {exc_val} | '
+                  f'Traceback = {traceback.print_tb(exc_tb)}')
 
 
 """
@@ -94,9 +141,10 @@ class DeterministicTrajectoriesGeneration(object):
 
         i_s = [_ for _ in range(traj.shape[0] + 2)]
         x = np.linspace(0, (len(i_s) - 1), m_post, dtype=np.float64)
-        return tf.clip_by_norm(tf.constant(list(zip(
+        return tf.tile(tf.expand_dims(tf.clip_by_norm(tf.constant(list(zip(
             UnivariateSpline(i_s, tf.concat([x_0[:, 0], traj[:, 0], x_m[:, 0]], axis=0), s=0)(x),
-            UnivariateSpline(i_s, tf.concat([x_0[:, 1], traj[:, 1], x_m[:, 1]], axis=0), s=0)(x)))), a, axes=1)
+            UnivariateSpline(i_s, tf.concat([x_0[:, 1], traj[:, 1], x_m[:, 1]], axis=0), s=0)(x)))), a, axes=1),
+            axis=0), multiples=[int(n / 2), 1, 1])
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb is not None:
@@ -181,14 +229,16 @@ hover_pwr = mobility_pwr(0.0)
 lpf = LinkPerformanceEvaluator()
 
 
-def setup():
-    return DeterministicTrajectoriesGeneration().generate(), \
-           tf.Variable(choice(np.linspace(v_min, v_max, v_num), size=[m_post]), dtype=tf.float64)
+def setup(n_w):
+    r_gen = RandomTrajectoriesGeneration()
+    d_gen = DeterministicTrajectoriesGeneration()
+    return tf.concat([d_gen.generate(), r_gen.optimize(r_gen.generate(n_w), n_w)], axis=0), \
+        tf.Variable(choice(np.linspace(v_min, v_max, v_num), size=[m_post]), dtype=tf.float64)
 
 
 # noinspection PyTypeChecker
 def solve(p_, v_, n_w):
-    p, v = setup()
+    p, v = setup(n_w)
     p_var = cp.Variable((m_post, 2), value=p.numpy())
     v_var = cp.Variable((m_post - 1,), value=tf.where(tf.equal(v[:-1], 0.0),
                                                       tf.ones_like(v[:-1]), v[:-1]).numpy())
@@ -297,7 +347,7 @@ def converged(f_prev, f_next):
 
 def analyze(n_w):
     try:
-        p_, v_ = setup()
+        p_, v_ = setup(n_w)
         c, f_prev, f_next, lagr_values = 0, 0.0, 0.0, {}
 
         while c < conf or not converged(f_prev, f_next):

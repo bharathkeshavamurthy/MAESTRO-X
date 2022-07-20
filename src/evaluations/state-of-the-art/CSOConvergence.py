@@ -6,7 +6,7 @@ the CSO algorithm determines the UAV's "optimal" trajectory segments (and their 
 script then evaluates the convergence performance of this "path planning" for benchmarking w.r.t SCA, HCSO, and others.
 
 Reference Paper:
-                @ARTICLE{6819057,
+                @ARTICLE{CSO,
                   author={Cheng, Ran and Jin, Yaochu},
                   journal={IEEE Transactions on Cybernetics},
                   title={A Competitive Swarm Optimizer for Large Scale Optimization},
@@ -49,16 +49,16 @@ Configurations-II: Deployment Parameters
 
 pi = np.pi
 np.random.seed(6)
-a, m, m_ip, n = 1000.0, 6, 2, 400
+a, m, m_ip, n = 1e3, 126, 2, 400
 h_bs, h_uav, h_gns = 80.0, 200.0, 0.0
 r_bounds, th_bounds = (-a, a), (0, 2 * pi)
 x_g = tf.constant([[-570.0, 601.0]], dtype=tf.float64)
 bw, snr_0, a_los, a_nlos, kappa = 5e6, 1e4, 2.0, 2.8, 0.2
-p_avg = np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[0]
-k_1, k_2, z_1, z_2, conf, tol = 1.0, np.log(100) / 90.0, 9.61, 0.16, 100, 1e-10
-nu, data_len, arr_rates = 0.99 / p_avg, [1e6, 10e6, 100e6][0], {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}
+p_avg = np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
+k_1, k_2, z_1, z_2, conf, tol, m_post = 1.0, np.log(100) / 90.0, 9.61, 0.16, 10, 1e-5, m_ip * (m + 2)
+nu, data_len, arr_rates = 0.99 / p_avg, [1e6, 10e6, 100e6][1], {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}
 x_0, x_m = tf.constant([[400.0, -300.0]], dtype=tf.float64), tf.constant([[-387.50, 391.50]], dtype=tf.float64)
-utip, v0, p1, p2, p3, k_max, v_min, v_max, v_num, omega = 200.0, 7.2, 580.65, 790.6715, 0.0073, 100, 0.0, 55.0, 10, 1.0
+utip, v0, p1, p2, p3, k_max, v_min, v_max, v_num, omega = 200.0, 7.2, 580.65, 790.6715, 0.0073, 100, 0.0, 55.0, 25, 1.0
 
 """
 UAV Mobility Power Computation Routine
@@ -78,10 +78,6 @@ Random Trajectories Generation
 # noinspection PyMethodMayBeStatic
 class RandomTrajectoriesGeneration(object):
 
-    def __init__(self):
-        print('[INFO] RandomTrajectoriesGeneration Initialization: Bringing things up...')
-        # Nothing to do here...
-
     def __enter__(self):
         return self
 
@@ -93,9 +89,9 @@ class RandomTrajectoriesGeneration(object):
                                             axis=1), validate_shape=True, use_locking=True)
 
     def generate(self, n_w):
-        trajs = tf.Variable(tf.zeros(shape=(n, m, 2), dtype=tf.float64), dtype=tf.float64)
+        trajs = tf.Variable(tf.zeros(shape=(int(n / 2), m, 2), dtype=tf.float64), dtype=tf.float64)
         with ThreadPoolExecutor(max_workers=n_w) as executor:
-            for i in range(n):
+            for i in range(int(n / 2)):
                 executor.submit(self.__generate, trajs[i, :])
         return trajs
 
@@ -108,16 +104,46 @@ class RandomTrajectoriesGeneration(object):
                             validate_shape=True, use_locking=True)
 
     def optimize(self, trajs, n_w):
-        m_post = m_ip * (m + 2)
-        opt_trajs = tf.Variable(tf.zeros(shape=[n, m_post, 2], dtype=tf.float64), dtype=tf.float64)
+        opt_trajs = tf.Variable(tf.zeros(shape=[int(n / 2), m_post, 2], dtype=tf.float64), dtype=tf.float64)
         with ThreadPoolExecutor(max_workers=n_w) as executor:
-            for i in range(n):
+            for i in range(int(n / 2)):
                 executor.submit(self.__optimize, trajs[i, :], opt_trajs[i, :])
         return opt_trajs
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb is not None:
             print(f'[ERROR] RandomTrajectoriesGeneration Termination: Tearing things down - '
+                  f'Exception Type = {exc_type} | Exception Value = {exc_val} | '
+                  f'Traceback = {traceback.print_tb(exc_tb)}')
+
+
+"""
+Deterministic Trajectories Generation
+"""
+
+
+# noinspection PyMethodMayBeStatic
+class DeterministicTrajectoriesGeneration(object):
+
+    def __enter__(self):
+        return self
+
+    def generate(self):
+        x_mid = tf.divide(tf.add(x_0, x_m), 2)
+        x_mid_0 = tf.divide(tf.add(x_0, x_mid), 2)
+        x_mid_m = tf.divide(tf.add(x_mid, x_m), 2)
+        traj = tf.concat([x_mid_0, x_mid, x_mid_m], axis=0)
+
+        i_s = [_ for _ in range(traj.shape[0] + 2)]
+        x = np.linspace(0, (len(i_s) - 1), m_post, dtype=np.float64)
+        return tf.tile(tf.expand_dims(tf.clip_by_norm(tf.constant(list(zip(
+            UnivariateSpline(i_s, tf.concat([x_0[:, 0], traj[:, 0], x_m[:, 0]], axis=0), s=0)(x),
+            UnivariateSpline(i_s, tf.concat([x_0[:, 1], traj[:, 1], x_m[:, 1]], axis=0), s=0)(x)))), a, axes=1),
+            axis=0), multiples=[int(n / 2), 1, 1])
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_tb is not None:
+            print(f'[ERROR] DeterministicTrajectoriesGeneration Termination: Tearing things down - '
                   f'Exception Type = {exc_type} | Exception Value = {exc_val} | '
                   f'Traceback = {traceback.print_tb(exc_tb)}')
 
@@ -317,7 +343,6 @@ def cso(p, v, u, w, n_w):
 
 
 def analyze(n_w):
-    m_post = (m + 2) * m_ip
     vals = np.linspace(v_min, v_max, v_num)
     c, lagrs, f_star_old, f_star_new = 0, {}, 0.0, 0.0
     v = tf.Variable(np.random.choice(vals, size=[n, m_post]))
@@ -328,8 +353,10 @@ def analyze(n_w):
         return f_star_new.numpy() - f_star_old.numpy() > tol
 
     try:
-        generator = RandomTrajectoriesGeneration()
-        p = generator.optimize(generator.generate(n_w), n_w)
+        r_gen = RandomTrajectoriesGeneration()
+        d_gen = DeterministicTrajectoriesGeneration()
+        p = tf.concat([d_gen.generate(), r_gen.optimize(r_gen.generate(n_w), n_w)], axis=0)
+
         while c < conf or not converged():
             f_star_old = f_star_new
             # noinspection PyTypeChecker

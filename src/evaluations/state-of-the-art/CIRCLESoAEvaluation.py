@@ -2,7 +2,7 @@
 This script evaluates the performance of the CIRCLE UAV trajectory heuristic from the state-of-the-art.
 
 Reference Paper 1:
-    @ARTICLE{9119191,
+    @ARTICLE{CIRCLE_1,
     author={Hu, Qiyu and Cai, Yunlong and Liu, An and Yu, Guanding and Li, Geoffrey Ye},
     journal={IEEE Transactions on Wireless Communications},
     title={Low-Complexity Joint Resource Allocation and Trajectory Design for UAV-Aided Relay Networks With the
@@ -14,7 +14,7 @@ Reference Paper 1:
     doi={10.1109/TWC.2020.3000864}}
 
 Reference Paper 2:
-    @ARTICLE{9209079,
+    @ARTICLE{CIRCLE_2,
         author={Wang, Liang and Wang, Kezhi and Pan, Cunhua and Xu, Wei and Aslam, Nauman and Hanzo, Lajos},
         journal={IEEE Transactions on Cognitive Communications and Networking},
         title={Multi-Agent Deep Reinforcement Learning-Based Trajectory Planning for Multi-UAV Mobile Edge Computing},

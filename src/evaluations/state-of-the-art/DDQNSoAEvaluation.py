@@ -6,7 +6,7 @@ out the results section in the parent repository (Odin) for screenshots and logs
 framework on our ASU ECEE NVIDIA A100 GPU cluster.
 
 Reference Paper:
-            @article{Bayerlein2021,
+            @article{DDQN,
                     author = {Harald Bayerlein and Mirco Theile and Marco Caccamo and David Gesbert},
                     title = {Multi-{UAV} Path Planning for Wireless Data Harvesting with Deep Reinforcement Learning},
                     journal = {IEEE Open Journal of the Communications Society},

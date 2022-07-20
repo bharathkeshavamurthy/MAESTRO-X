@@ -8,7 +8,7 @@ framework on our ASU ECEE NVIDIA A100 GPU cluster.
 DDQNSoAEvaluation v2.0: A different "more realistic" way of evaluating the framework's performance: consider penalties.
 
 Reference Paper:
-            @article{Bayerlein2021,
+            @article{DDQN,
                     author = {Harald Bayerlein and Mirco Theile and Marco Caccamo and David Gesbert},
                     title = {Multi-{UAV} Path Planning for Wireless Data Harvesting with Deep Reinforcement Learning},
                     journal = {IEEE Open Journal of the Communications Society},
