@@ -315,11 +315,11 @@ def evaluate_operations(num_workers=256):
             services[_k] = np.mean(_v)
             waits[_k] = np.mean(_waits)
             totals[_k] = services[_k] + waits[_k]
-        print(f'[DEBUG] DDQNSoAEvaluation evaluate_operations: Payload Size = {p_len} Mb | '
+        print(f'[DEBUG] DDQNEvaluationII evaluate_operations: Payload Size = {p_len} Mb | '
               f'Average Comm Delay = {np.mean([_ for _ in services.values()])} seconds')
-        print(f'[DEBUG] DDQNSoAEvaluation evaluate_operations: Payload Size = {p_len} Mb | '
+        print(f'[DEBUG] DDQNEvaluationII evaluate_operations: Payload Size = {p_len} Mb | '
               f'Average Wait Times = {np.mean([_ for _ in waits.values()])} seconds')
-        print(f'[INFO] DDQNSoAEvaluation evaluate_operations: Multiple UAV Relays | M/G/1 | '
+        print(f'[INFO] DDQNEvaluationII evaluate_operations: Multiple UAV Relays | M/G/1 | '
               f'[{number_of_uavs}] UAV Relays | Payload Length = {p_len} Mb | '
               f'Average Service Delay = {np.mean([_ for _ in totals.values()])} seconds | '
               f'UAV Power Consumption = {np.mean(np.concatenate([_ for _ in powers_mod[p].values()]))} Watts\n')

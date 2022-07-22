@@ -323,7 +323,7 @@ def evaluate(n_w):
         comm_serv_energies = np.array(serv_energies)
         avg_serv_power = np.mean(np.divide(comm_serv_energies, comm_serv_times))
 
-        print(f'[INFO] CIRCLESoAEvaluation evaluate: UAVs = {num_uavs} | GNs/Requests = {num_gns} | '
+        print(f'[INFO] CIRCLEEvaluation evaluate: UAVs = {num_uavs} | GNs/Requests = {num_gns} | '
               f'Data Length = {data_len / 1e6} Mb | Average Power Consumption = {avg_serv_power} W | '
               f'Comm Times = {avg_serv_time} s | Wait Times = {avg_wait_time} s | Total Times = {avg_total_time} s')
 

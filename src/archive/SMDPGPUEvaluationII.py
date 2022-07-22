@@ -22,7 +22,7 @@ Organization: School of Electrical & Computer Engineering, Purdue University, We
 Copyright (c) 2021. All Rights Reserved.
 """
 
-# GPU version for 2xNVIDIA Tesla P100 (on the CloudLab Clemson Cluster)
+# GPU version for 2x [NVIDIA Tesla P100] (on the CloudLab Clemson Cluster)
 
 import os
 
@@ -49,11 +49,6 @@ from scipy.interpolate import UnivariateSpline
 from concurrent.futures import ThreadPoolExecutor
 import tensorflow_constrained_optimization as tfco
 from plotly.validators.scatter.marker import SymbolValidator
-
-"""
-Execution Note: This script is meant to be executed on a machine with at least 4 CUDA-capable GPUs--however, if GPUs 
-aren't available, replace '/GPU:X' device [in tf.device placement] with '/CPU:X'
-"""
 
 """
 Plotly API settings & instantiations

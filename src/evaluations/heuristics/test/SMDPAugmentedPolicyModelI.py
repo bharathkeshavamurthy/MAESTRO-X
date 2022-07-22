@@ -173,7 +173,7 @@ for u_idx in range(1, 4):
         uav_serv_times = np.abs(np.random.normal(loc=serv_time, scale=serv_time / 10.0, size=n_comm))
         env.process(arrivals())
         env.run()
-        print(f'[INFO] SMDPAugmentedPolicyModel main: Number of UAVs = {number_of_uavs} | '
+        print(f'[INFO] SMDPAugmentedPolicyModelI main: Number of UAVs = {number_of_uavs} | '
               f'Number of orthogonal BS channels = {number_of_bs_channels} | Payload size = {ell / 1e6} Mb | '
               f'Arrival rate = {lambda_arr} req/s | Average power constraint = {p_avg / 1e3} kW | '
               f'{number_of_uavs} UAV-relay(s) average queue wait time = {np.mean(wait_times)} s | '

@@ -214,8 +214,8 @@ def surrogate_1(_m, tau, z_uavs_, z_gns_, z_uavs_t_):
 def surrogate_2(tau, z_uav_, z_uav_t_):
     m, d_loc_diff = num_uavs, tau * d(z_uav_, z_uav_t_) ** 2
     ph = ((snr_0 * (gain_aprx(z_uav_, z_uav_t_, z_bs) - gain(z_uav_t_, z_bs))) / (1 + snr_0 * gain(z_uav_t_, z_bs))) - \
-         d_loc_diff + ((snr_0 * np.matmul(np.transpose(-gain_loc_d(z_uav_t_, z_bs)), (z_uav_ - z_uav_t_))) /
-                       (1 + snr_0 * gain(z_uav_t_, z_bs)))
+        d_loc_diff + ((snr_0 * np.matmul(np.transpose(-gain_loc_d(z_uav_t_, z_bs)), (z_uav_ - z_uav_t_))) /
+                      (1 + snr_0 * gain(z_uav_t_, z_bs)))
     return bw * ph + throughput(z_uav_t_, z_bs)
 
 
@@ -296,7 +296,7 @@ def work(i, fn, tau_t, zs_t, vs_t, r_u_s_t, r_c_t, pipe):
 
         pipe.send((i, zs.value, vs.value, r_u_s.value, r_c.value))
         z_hats.value, z_dots.value, z_tildes.value, z_bars.value, v_tildes.value, \
-        v_bars.value, r_u_hats.value, r_u_tildes.value, r_c_tildes.value = pipe.recv()
+            v_bars.value, r_u_hats.value, r_u_tildes.value, r_c_tildes.value = pipe.recv()
 
         lbd2s.value += zs.value - z_bars.value
         lbd9s.value += v_bars.value - vs.value
@@ -371,7 +371,7 @@ def evaluate():
     w_avg = np.mean([_t for val in w_times.values() for _t in val], axis=0)
     t_avg = np.mean([s_times[_m][_i] + w_times[_m][_i] for _m in range(m) for _i in range(len(s_times[_m]))], axis=0)
 
-    print(f'[INFO] NonAdaptiveSoAEvaluation evaluate: Length = {data_len / 1e6} Mb | Arrival Rate = {rate}'
+    print(f'[INFO] ADMMEvaluation evaluate: Length = {data_len / 1e6} Mb | Arrival Rate = {rate}'
           f' | Average UAV Power Constraint = {p_avg} | Average Communication Service Time = {s_avg} s'
           f' | Average In-Queue Waiting Time = {w_avg} seconds | Average Total Time = {t_avg} s.')
 

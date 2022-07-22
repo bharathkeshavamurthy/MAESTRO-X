@@ -2,7 +2,7 @@
 This script constitutes a "pilot" evaluation of the CVXPy module: a necessary utility for CSCA-ADMM non-adaptive SoA &
 SCA convergence evaluations -- particularly, the Consensus Optimization submodule with ADMM.
 
-Simplified Subset (ADMM) Debugging | Superset: src/uav-mobility/model-evaluations/NonAdaptiveSoAEvaluation.py
+Simplified Subset (ADMM) Debugging | Superset: src/uav-mobility/model-evaluations/ADMMEvaluation.py
 
 Reference: Consensus Optimization, CVXPy Documentation <https://www.cvxpy.org/examples/applications/consensus_opt.html>
 

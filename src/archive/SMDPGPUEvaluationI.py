@@ -50,11 +50,6 @@ import tensorflow_constrained_optimization as tfco
 from plotly.validators.scatter.marker import SymbolValidator
 
 """
-Execution Note: This script is meant to be executed on a machine with at least 4 CUDA-capable GPUs--however, if GPUs 
-aren't available, replace '/GPU:X' device [in tf.device placement] with '/CPU:X'
-"""
-
-"""
 Plotly API settings & instantiations
 """
 
