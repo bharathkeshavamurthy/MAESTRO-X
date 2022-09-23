@@ -40,10 +40,10 @@ np.random.seed(6)
 Deployment Model Parameters
 """
 # The number of orthogonal channels at the BS ($N_{K}$)
-NUMBER_OF_CHANNELS = 3
+NUMBER_OF_CHANNELS = 10
 
 # The height of the BS from the ground ($H_{B}$) in meters
-BASE_STATION_HEIGHT = 450.0
+BASE_STATION_HEIGHT = 80.0
 
 # The height of the UAV from the ground ($H_{U}$) in meters
 UAV_HEIGHT = 200.0
