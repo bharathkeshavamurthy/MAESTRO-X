@@ -1,6 +1,0 @@
-C:\Users\kesha\Workspaces\venv\Scripts\python.exe C:/Users/kesha/Workspaces/Odin/src/uav-mobility/RandomTrajectoriesGeneration.py
-[INFO] RandomTrajectoriesGeneration main: Starting the generation of random trajectories between the given points x_0 = [[10. -2.]] and x_1 = [[180. 900.]], within the given bounds - X = (-1000.0, 1000.0) and Y = (0, 6.283185307179586)
-[INFO] RandomTrajectoriesGeneration Initialization: Bringing things up...
-[INFO] RandomTrajectoriesGeneration Termination: Tearing things down - Exception Type = None | Exception Value = None | Traceback = None
-(2048, 2000, 2)
-Process Time = 41.64099999994505 seconds
