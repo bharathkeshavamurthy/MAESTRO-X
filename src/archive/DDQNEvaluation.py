@@ -5,6 +5,8 @@ Please see uav-data-harvesting git submodule for the code corresponding to this 
 out the results section in the parent repository (Odin) for screenshots and logs corresponding to the execution of this
 framework on our ASU ECEE NVIDIA A100 GPU cluster.
 
+DDQNSoAEvaluation v2.0: A different "more realistic" way of evaluating the framework's performance: consider penalties.
+
 Reference Paper:
             @article{DDQN,
                     author = {Harald Bayerlein and Mirco Theile and Marco Caccamo and David Gesbert},
@@ -29,7 +31,6 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'  # TensorFlow logging level
 
 import numpy as np
 import tensorflow as tf
-from collections import namedtuple
 from simpy import Environment, Resource
 from scipy.stats import rice, ncx2, rayleigh
 from concurrent.futures import ThreadPoolExecutor
@@ -51,7 +52,10 @@ arrival_rates = {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}
 data_payload_sizes = [1e6, 10e6, 100e6]
 
 # The number of UAVs in model training and in this post-processing evaluations
-number_of_uavs = 3
+number_of_uavs = 1
+
+# The UAV forward flying velocity for mobility power consumption analysis (Fixed in this framework) (in m/s)
+uav_velocity = 10.0
 
 # The GN heights extracted from the "urban50" scenario run on 4xNVIDIA-A100 GPU cluster at ASU School of ECEE
 gn_heights = {0: tf.constant(0.0, dtype=tf.float64), 1: tf.constant(0.0, dtype=tf.float64),
@@ -73,8 +77,6 @@ uav_height = 200.0
 """
 UAV Trajectories
 """
-
-# TODO: Read these as tensors from the optimal policy log file (or parse from model) instead of copy-pasting it directly
 
 # The trajectory of UAV-0 to serve GNs 2, 1, 0, and 3 (approximated to the closest integer)
 uav_0_trajectory = {2: tf.constant([[24.0, 24.0], [24.0, 23.0], [23.0, 23.0], [23.0, 22.0], [22.0, 22.0], [21.0, 22.0],
@@ -119,11 +121,11 @@ The system-wide resource for UAV power consumption evaluation
 """
 
 
-def evaluate_power_consumption(v=10.0):
+def evaluate_power_consumption(v=uav_velocity):
     u_tip, v_0, p_1, p_2, p_3 = 200.0, 7.2, 580.65, 790.6715, 0.0073
     return (p_1 * (1 + ((3 * (v ** 2)) / (u_tip ** 2)))) + \
-           (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5) + \
-           (p_3 * (v ** 3))
+        (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5) + \
+        (p_3 * (v ** 3))
 
 
 """
@@ -168,9 +170,6 @@ class LinkPerformanceEvaluator(object):
         self.propagation_environment_parameter_2 = propagation_environment_parameter_2
         self.convergence_confidence = convergence_confidence
         self.bisection_method_tolerance = bisection_method_tolerance
-        self.evaluation_output = namedtuple('link_performance_evaluation_output',
-                                            ['los_throughputs', 'nlos_throughputs', 'average_throughputs',
-                                             'average_delays', 'aggregated_average_delay'])
 
     def __enter__(self):
         return self
@@ -237,7 +236,7 @@ class LinkPerformanceEvaluator(object):
             executor.submit(self.__evaluate_los_throughput, d, phi, r_los)
             executor.submit(self.__evaluate_nlos_throughput, d, r_nlos)
 
-    def __average_throughputs(self, d_s, phi_s, num_workers):
+    def average_throughputs(self, d_s, phi_s, num_workers):
         r_los_s = tf.Variable(tf.zeros(shape=d_s.shape, dtype=tf.float64), dtype=tf.float64)
         r_nlos_s = tf.Variable(tf.zeros(shape=d_s.shape, dtype=tf.float64), dtype=tf.float64)
         z_1, z_2 = self.propagation_environment_parameter_1, self.propagation_environment_parameter_1
@@ -247,24 +246,7 @@ class LinkPerformanceEvaluator(object):
         phi_degrees = (180.0 / np.pi) * phi_s
         p_los = 1 / (1 + (z_1 * tf.exp(-z_2 * (phi_degrees - z_1))))
         p_nlos = tf.subtract(tf.ones(shape=p_los.shape, dtype=tf.float64), p_los)
-        return r_los_s, r_nlos_s, tf.add(tf.multiply(p_los, r_los_s), tf.multiply(p_nlos, r_nlos_s))
-
-    # noinspection PyMethodMayBeStatic
-    def __average_delays(self, p_lens, r_bars):
-        delta_bars_p = {
-            p_len: tf.divide(tf.constant(p_len, shape=r_bars.shape, dtype=tf.float64), r_bars) for p_len in p_lens
-        }
-        delta_bars_agg = {
-            p_len: tf.divide(tf.reduce_sum(delta_bars), tf.constant(r_bars.shape[0], dtype=tf.float64)).numpy()
-            for p_len, delta_bars in delta_bars_p.items()
-        }
-        return delta_bars_p, delta_bars_agg
-
-    def evaluate(self, d_s, phi_s, p_lens, num_workers):
-        r_los_s, r_nlos_s, r_bars = self.__average_throughputs(d_s, phi_s, num_workers)
-        delta_bars_p, delta_bars_agg = self.__average_delays(p_lens, r_bars)
-        return self.evaluation_output(los_throughputs=r_los_s, nlos_throughputs=r_nlos_s, average_throughputs=r_bars,
-                                      average_delays=delta_bars_p, aggregated_average_delay=delta_bars_agg)
+        return tf.add(tf.multiply(p_los, r_los_s), tf.multiply(p_nlos, r_nlos_s))
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print(f'[INFO] LinkPerformanceEvaluator Termination: Tearing things down - Exception Type = {exc_type} | '
@@ -278,6 +260,14 @@ Core Evaluation Routines
 
 def multiple_uav_relays(payload_sizes, uav_trajs, gn_alts, gn_coords, num_workers):
     gu_delays = {k: {_k: {} for _k in v.keys()} for k, v in uav_trajs.items()}
+    gu_powers = {k: {_k: {} for _k in v.keys()} for k, v in uav_trajs.items()}
+    p_extra = {k: {_k: {} for _k in v.keys()} for k, v in uav_trajs.items()}
+    gu_time_penalties = {k: {_k: {} for _k in v.keys()} for k, v in uav_trajs.items()}
+    gu_energy_penalties = {k: {_k: {} for _k in v.keys()} for k, v in uav_trajs.items()}
+    gu_throughputs = {k: {_k: {} for _k in v.keys()} for k, v in uav_trajs.items()}
+    gu_times = {k: {_k: tf.divide(tf.norm(tf.roll(_v * scaling_factor, shift=-1, axis=0)[:-1, :] -
+                                          _v[:-1, :] * scaling_factor, axis=1), uav_velocity)
+                    for _k, _v in v.items()} for k, v in uav_trajs.items()}
     gu_xy_distances = {k: {_k: tf.norm(tf.subtract(gn_coords[_k] * scaling_factor, _v * scaling_factor), axis=1)
                            for _k, _v in v.items()} for k, v in uav_trajs.items()}
     gu_heights = {k: {_k: tf.constant(abs(uav_height - gn_alts[_k]), shape=_v.shape, dtype=tf.float64)
@@ -287,17 +277,33 @@ def multiple_uav_relays(payload_sizes, uav_trajs, gn_alts, gn_coords, num_worker
     gu_angles = {k: {_k: tf.asin(tf.divide(gu_heights[k][_k], gu_distances[k][_k]))
                      for _k in v.keys()} for k, v in gu_xy_distances.items()}
     lpf = LinkPerformanceEvaluator(5e6, 1e4, 2.0, 2.8, 0.2, 1.0, np.log(100) / 90.0, 9.61, 0.16, 100, 1e-10)
-    for k, v in gu_delays.items():
+    for k, v in gu_throughputs.items():
         for _k, _v in v.items():
             dists, angles = gu_distances[k][_k], gu_angles[k][_k]
-            gu_delays[k][_k] = lpf.evaluate(dists, angles, payload_sizes, num_workers).aggregated_average_delay
-    return gu_delays
+            gu_throughputs[k][_k] = lpf.average_throughputs(dists, angles, num_workers)
+            p_extra[k][_k] = {p_len: tf.subtract(p_len, tf.reduce_sum(tf.multiply(gu_times[k][_k],
+                                                                                  gu_throughputs[k][_k][:-1]), axis=0))
+                              for p_len in payload_sizes}
+            gu_time_penalties[k][_k] = {
+                p_len: p_extra[k][_k][p_len] / gu_throughputs[k][_k][-1] if p_extra[k][_k][p_len] > 0.0 else 0.0
+                for p_len in payload_sizes}
+            gu_delays[k][_k] = {p_len: tf.add(tf.reduce_sum(gu_times[k][_k], axis=0), gu_time_penalties[k][_k][p_len])
+                                for p_len in payload_sizes}
+            gu_energy_penalties[k][_k] = {p_len: evaluate_power_consumption(0.0) * gu_time_penalties[k][_k][p_len]
+                                          for p_len in payload_sizes}
+            gu_powers[k][_k] = {p_len: tf.divide(tf.add(gu_energy_penalties[k][_k][p_len],
+                                                        tf.multiply(evaluate_power_consumption(),
+                                                                    tf.reduce_sum(gu_times[k][_k]))),
+                                                 gu_delays[k][_k][p_len]) for p_len in payload_sizes}
+    return gu_delays, gu_powers
 
 
 def evaluate_operations(num_workers=256):
-    uav_positions = {0: uav_0_trajectory, 1: uav_1_trajectory, 2: uav_2_trajectory}
-    delays = multiple_uav_relays(data_payload_sizes, uav_positions, gn_heights, gn_positions, num_workers)
-    delays_mod = {p: {k: np.random.permutation(np.repeat([v[_k][p] for _k in v.keys()], 10000))
+    uav_positions = {0: uav_0_trajectory}
+    delays, powers = multiple_uav_relays(data_payload_sizes, uav_positions, gn_heights, gn_positions, num_workers)
+    powers_mod = {p: {k: np.repeat([v[_k][p].numpy() for _k in v.keys()], 10000)
+                      for k, v in powers.items()} for p in data_payload_sizes}
+    delays_mod = {p: {k: np.random.permutation(np.repeat([v[_k][p].numpy() for _k in v.keys()], 10000))
                       for k, v in delays.items()} for p in data_payload_sizes}
     for p, v in delays_mod.items():
         p_len = p / 1e6
@@ -309,14 +315,14 @@ def evaluate_operations(num_workers=256):
             services[_k] = np.mean(_v)
             waits[_k] = np.mean(_waits)
             totals[_k] = services[_k] + waits[_k]
-        print(f'[DEBUG] DDQNEvaluationI evaluate_operations: Payload Size = {p_len} Mb | '
+        print(f'[DEBUG] DDQNEvaluation evaluate_operations: Payload Size = {p_len} Mb | '
               f'Average Comm Delay = {np.mean([_ for _ in services.values()])} seconds')
-        print(f'[DEBUG] DDQNEvaluationI evaluate_operations: Payload Size = {p_len} Mb | '
+        print(f'[DEBUG] DDQNEvaluation evaluate_operations: Payload Size = {p_len} Mb | '
               f'Average Wait Times = {np.mean([_ for _ in waits.values()])} seconds')
-        print(f'[INFO] DDQNEvaluationI evaluate_operations: Multiple UAV Relays | M/G/1 | '
+        print(f'[INFO] DDQNEvaluation evaluate_operations: Multiple UAV Relays | M/G/1 | '
               f'[{number_of_uavs}] UAV Relays | Payload Length = {p_len} Mb | '
-              f'UAV Power Consumption Constraint = {evaluate_power_consumption()} Watts | '
-              f'Average Service Delay = {np.mean([_ for _ in totals.values()])} seconds\n')
+              f'Average Service Delay = {np.mean([_ for _ in totals.values()])} seconds | '
+              f'UAV Power Consumption = {np.mean(np.concatenate([_ for _ in powers_mod[p].values()]))} Watts\n')
 
 
 # Run Trigger

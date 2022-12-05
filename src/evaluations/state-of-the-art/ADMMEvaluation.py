@@ -4,26 +4,25 @@ models. A few of these adaptations include "static bandwidth allocations", "obst
 power & mobility models", "queueing and scheduling in the Link Layer", and "delay analysis".
 
 Reference Paper:
-                @ARTICLE{CSCA,
-                author={Hu, Qiyu and Cai, Yunlong and Liu, An and Yu, Guanding and Li, Geoffrey Ye},
-                journal={IEEE Transactions on Wireless Communications},
-                title={Low-Complexity Joint Resource Allocation and Trajectory Design for UAV-Aided Relay Networks With
-                       the Segmented Ray-Tracing Channel Model},
-                year={2020},
-                volume={19},
-                number={9},
-                pages={6179-6195},
-                doi={10.1109/TWC.2020.3000864}}
 
-Reference: Consensus Optimization, CVXPy Documentation <https://www.cvxpy.org/examples/applications/consensus_opt.html>
+    @ARTICLE{CSCA,
+    author={Hu, Qiyu and Cai, Yunlong and Liu, An and Yu, Guanding and Li, Geoffrey Ye},
+    journal={IEEE Transactions on Wireless Communications},
+    title={Low-Complexity Joint Resource Allocation and Trajectory Design for UAV-Aided Relay Networks With
+           the Segmented Ray-Tracing Channel Model},
+    year={2020},
+    volume={19},
+    number={9},
+    pages={6179-6195},
+    doi={10.1109/TWC.2020.3000864}}
 
-Author: Bharath Keshavamurthy <bkeshav1@asu.edu | bkeshava@purdue.edu>
-Organization: School of Electrical, Computer and Energy Engineering, Arizona State University, Tempe, AZ.
-              School of Electrical and Computer Engineering, Purdue University, West Lafayette, IN.
+Author: Bharath Keshavamurthy <bkeshava@purdue.edu | bkeshav1@asu.edu>
+Organization: School of Electrical & Computer Engineering, Purdue University, West Lafayette, IN.
+              School of Electrical, Computer and Energy Engineering, Arizona State University, Tempe, AZ.
+
 Copyright (c) 2022. All Rights Reserved.
 """
 
-# The imports
 import warnings
 import numpy as np
 import cvxpy as cp
@@ -32,36 +31,34 @@ from simpy import Environment, Resource
 from multiprocessing import Pipe, Process
 from numpy.random import choice, uniform, random, random_sample
 
+"""
+Miscellaneous
+"""
+
 # Filter user warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
-"""
-Configurations
-"""
+# Global utilities for basic operations
+decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 
+"""
+Configurations: Simulation parameters
+"""
 pi = np.pi
+bw_ = 2.5e6
 np.random.seed(6)
+snr_0 = linear((5e6 * 40) / bw_)
 utip, v0, p1, p2, p3 = 200.0, 7.2, 580.65, 790.6715, 0.0073
 rho, sigma_mul, sigma_alpha, tmax_csca, lmax_admm = 3.0, 0.1, 0.1, 10, 10
-radius, num_slots, num_gns, bs_ht, uav_ht, gn_ht = 1e3, 10, 10, 80.0, 200.0, 0.0
+radius, num_slots, num_gns, bs_ht, uav_ht, gn_ht = 1e3, 10, 30, 80.0, 200.0, 0.0
 v_min, v_max, arr_rates = 0.0, 55.0, {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}
-snr_0, bw, alpha_los, alpha_nlos, beta_los, beta_nlos, z1, z2 = 1e4, 5e6, 2.0, 2.8, 1e-4, 1e-3, 9.61, 0.16
-num_uavs, data_len, p_avg = 3, [1e6, 10e6, 100e6][2], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
+alpha_los, alpha_nlos, beta_los, beta_nlos, z1, z2 = 2.0, 2.8, 1e-4, 1e-3, 9.61, 0.16
+max_iters, eps_abs, eps_rel, warm_start, verbose, csca_conf, csca_tol = int(1e6), 1e-6, 1e-6, True, True, 5, 1e-5
+num_uavs, data_len, p_avg = 1, [1e6, 10e6, 100e6][0], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
 
 """
-num_uavs, data_len, p_avg = 2, [1e6, 10e6, 100e6][1], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
-num_uavs, data_len, p_avg = 3, [1e6, 10e6, 100e6][2], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
-num_uavs, data_len, p_avg = 1, [1e6, 10e6, 100e6][0], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
-num_uavs, data_len, p_avg = 2, [1e6, 10e6, 100e6][1], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
-num_uavs, data_len, p_avg = 3, [1e6, 10e6, 100e6][2], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
-num_uavs, data_len, p_avg = 1, [1e6, 10e6, 100e6][0], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
-num_uavs, data_len, p_avg = 2, [1e6, 10e6, 100e6][1], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
-num_uavs, data_len, p_avg = 3, [1e6, 10e6, 100e6][2], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
-"""
-
-"""
-Node(s) Deployments (BS, GNs, and UAVs)
+Deployments (BS, GNs, and UAVs)
 """
 
 z_bs = np.array([0.0, 0.0, bs_ht])
@@ -79,21 +76,22 @@ z_gns = np.array(list(zip(g_rs * np.cos(g_ths), g_rs * np.sin(g_ths), np.repeat(
 v_uavs, r_relays = choice(np.linspace(v_min, v_max, num_slots), (num_slots, num_uavs)), random((num_slots, num_gns))
 
 """
-UAV Power Consumption Evaluation Routine
+Utilities
 """
 
 
 def mobility_power(v):
+    """
+    UAV mobility power consumption
+    """
     return (p1 * (1 + ((3 * (v ** 2)) / (utip ** 2)))) + \
-           (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5) + (p3 * (v ** 3))
-
-
-"""
-SimPy Queueing Model Routines
-"""
+        (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5) + (p3 * (v ** 3))
 
 
 def gn_request(env, r, chs, w, s):
+    """
+    SimPy queueing model: GN request
+    """
     a = env.now
     k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
 
@@ -104,13 +102,16 @@ def gn_request(env, r, chs, w, s):
 
 
 def arrivals(env, chs, n_r, arr, w, s):
+    """
+    SimPy queueing model: Poisson arrivals
+    """
     for r in range(n_r):
         env.process(gn_request(env, r, chs, w, s))
         yield env.timeout(-np.log(random_sample()) / arr)
 
 
 """
-Channel Model Routines
+Core operations
 """
 
 
@@ -136,7 +137,7 @@ def gain(tx, rx):
 
 
 def throughput(tx, rx):
-    return bw * np.log2(1 + snr_0 * gain(tx, rx))
+    return bw_ * np.log2(1 + snr_0 * gain(tx, rx))
 
 
 def gain_loc_d(z_uav_t, z_gn):
@@ -151,11 +152,6 @@ def gain_aprx(z_uav, z_uav_t, z_gn):
     return (((0.5 * a_t + 1) * (d_t ** 2)) - (0.5 * a_t * (d_ ** 2))) / ((10 ** (-0.1 * b_t)) * (d_t ** (a_t + 2)))
 
 
-"""
-Constraints
-"""
-
-
 def uav_vel(y):
     k, n, m = num_gns, num_slots, num_uavs
     return True if np.sum([0 if 0.0 <= y[1][_i][_m] <= v_max else 1
@@ -168,11 +164,6 @@ def avg_pwr(y):
                                          for _i in range(n)], axis=0) <= p_avg else 1 for _m in range(m)]) else False
 
 
-"""
-CSCA Routines
-"""
-
-
 def step_size(y_t_1, y_t, y_t_star, sigma_t):
     k, n, s, a = num_gns, num_slots, sigma_mul, sigma_alpha
 
@@ -180,10 +171,11 @@ def step_size(y_t_1, y_t, y_t_star, sigma_t):
         return np.min(a * st * np.full((k,), n) * np.mean(ytstar[2] - yt[2], axis=0), axis=0)
 
     def f_t(y):
-        return min([np.sum(y[2][_k], axis=0) + (n * bw * np.log2(snr_0 * gain(z_bs, z_gns[_k]))) for _k in range(k)])
+        return min([np.sum(y[2][_k], axis=0) + (n * bw_ * np.log2(snr_0 * gain(z_bs, z_gns[_k]))) for _k in range(k)])
 
     if f_t(y_t_1) - f_t(y_t) < boundary(y_t, y_t_star, sigma_t) or uav_vel(y_t_1) or avg_pwr(y_t_1):
         sigma_t *= s
+
     return sigma_t
 
 
@@ -192,6 +184,7 @@ def surrogate_1(_m, tau, z_uavs_, z_gns_, z_uavs_t_):
 
     gs = {_n: np.array([snr_0 * gain(_z_uav_t_, _z_gn_)
                         for _z_gn_ in z_gns_]) for _n, _z_uav_t_ in enumerate(z_uavs_t_)}
+
     gs_loc_dd = {_n: np.array([snr_0 *
                                np.matmul(np.transpose(-gain_loc_d(z_uavs_t_[_n], _z_gn_)),
                                          (z_uavs_[_n] - z_uavs_t_[_n])) for _z_gn_ in z_gns_]) for _n in range(m)}
@@ -208,15 +201,17 @@ def surrogate_1(_m, tau, z_uavs_, z_gns_, z_uavs_t_):
     u2 = np.sum([[snr_0 * (gain_aprx(z_uavs_[_n], _z_gn_, z_uavs_t_[_n]) -
                            gain(z_uavs_t_[_n], _z_gn_)) for _z_gn_ in z_gns_] for _n in range(m)], axis=0)
 
-    return (bw * np.log2(c1 / c1_)) - d_loc_diff + (bw * ((u2 / c1) + (c2 / c1) - (u1 / c1_) - (c2_ / c1_)))
+    return (bw_ * np.log2(c1 / c1_)) - d_loc_diff + (bw_ * ((u2 / c1) + (c2 / c1) - (u1 / c1_) - (c2_ / c1_)))
 
 
 def surrogate_2(tau, z_uav_, z_uav_t_):
     m, d_loc_diff = num_uavs, tau * d(z_uav_, z_uav_t_) ** 2
+
     ph = ((snr_0 * (gain_aprx(z_uav_, z_uav_t_, z_bs) - gain(z_uav_t_, z_bs))) / (1 + snr_0 * gain(z_uav_t_, z_bs))) - \
-        d_loc_diff + ((snr_0 * np.matmul(np.transpose(-gain_loc_d(z_uav_t_, z_bs)), (z_uav_ - z_uav_t_))) /
-                      (1 + snr_0 * gain(z_uav_t_, z_bs)))
-    return bw * ph + throughput(z_uav_t_, z_bs)
+         d_loc_diff + ((snr_0 * np.matmul(np.transpose(-gain_loc_d(z_uav_t_, z_bs)), (z_uav_ - z_uav_t_))) /
+                       (1 + snr_0 * gain(z_uav_t_, z_bs)))
+
+    return bw_ * ph + throughput(z_uav_t_, z_bs)
 
 
 def update(y_t, y_t_star, sigma_t):
@@ -234,12 +229,8 @@ def csca():
         y_t_1 = update(y_t, y_t_star, sigma_t)
         sigma_t = step_size(y_t_1, y_t, y_t_star, sigma_t)
         y_t, (zs_t, vs_t, r_u_s_t, r_c_t) = y_t_1, y_t_1
+
     return y_t
-
-
-"""
-ADMM Setup & Routines
-"""
 
 
 # noinspection PyTypeChecker
@@ -291,7 +282,7 @@ def work(i, fn, tau_t, zs_t, vs_t, r_u_s_t, r_c_t, pipe):
     prob = cp.Problem(objective=cp.Maximize(fn), constraints=constraints_)
 
     while True:
-        prob.solve('SCS', warm_start=True, max_iters=int(1e6), eps_abs=1e-6, eps_rel=1e-6)
+        prob.solve('SCS', max_iters=max_iters, eps_abs=eps_abs, eps_rel=eps_rel, warm_start=warm_start, verbose=verbose)
         print(f'i = {i} | Primal Value = {prob.value} | Problem Status = {prob.solution.status}')
 
         pipe.send((i, zs.value, vs.value, r_u_s.value, r_c.value))
@@ -341,11 +332,6 @@ def admm(tau_t, zs_t, vs_t, r_u_s_t, r_c_t):
     return np.array([np.array(zs), np.array(vs), np.array(r_u_s), obj_fn(np.mean(r_u_s, axis=0))])
 
 
-"""
-Core SoA Framework Evaluation Routine
-"""
-
-
 def evaluate():
     z_uavs_opt, v_uavs_opt, r_relays_opt, r_c_opt = csca()
     n, m, rate, env = num_slots, num_uavs, arr_rates[data_len], Environment()
@@ -355,6 +341,7 @@ def evaluate():
         uav_mx = [np.argmin([norm(z_uavs_opt[_i][_m] -
                                   z_gns[i]) for _i in range(n)]) for _m in range(m)]
         mx_uav = np.argmin([norm(z_uavs_opt[uav_mx[_m]][_m] - z_gns[i]) for _m in range(m)])
+
         i_min, z_s, v_s, r_s = uav_mx[mx_uav], z_uavs_opt[:, mx_uav], v_uavs_opt[:, mx_uav], r_relays_opt[:, i]
 
         trajs = np.array(z_s[i:i_min + 1] if i < i_min else z_s[i_min:i + 1])
@@ -371,9 +358,9 @@ def evaluate():
     w_avg = np.mean([_t for val in w_times.values() for _t in val], axis=0)
     t_avg = np.mean([s_times[_m][_i] + w_times[_m][_i] for _m in range(m) for _i in range(len(s_times[_m]))], axis=0)
 
-    print(f'[INFO] ADMMEvaluation evaluate: Length = {data_len / 1e6} Mb | Arrival Rate = {rate}'
-          f' | Average UAV Power Constraint = {p_avg} | Average Communication Service Time = {s_avg} s'
-          f' | Average In-Queue Waiting Time = {w_avg} seconds | Average Total Time = {t_avg} s.')
+    print(f'[INFO] ADMMEvaluation evaluate: Length = {data_len / 1e6} Mb | '
+          f'Average Power Constraint = {p_avg / 1e3} kW | Average Service Time = {s_avg} s | '
+          f'Average In-Queue Waiting Time = {w_avg} seconds | Average Total Time = {t_avg} s.')
 
 
 # Run Trigger

@@ -21,6 +21,7 @@ Reference Paper for the associated mathematical modeling:
 Author: Bharath Keshavamurthy <bkeshava@purdue.edu | bkeshav1@asu.edu>
 Organization: School of Electrical & Computer Engineering, Purdue University, West Lafayette, IN.
               School of Electrical, Computer and Energy Engineering, Arizona State University, Tempe, AZ.
+
 Copyright (c) 2022. All Rights Reserved.
 """
 
@@ -56,8 +57,8 @@ ntp_client, ntp_url, policy_file = ntplib.NTPClient(), 'pool.ntp.org', ''.join([
 a, bw, n_c, n_u, n_g, n_r, n_x_bs, n_x_u, z_1, z_2 = 1e3, 1e7, 4, 3, 30, int(1e4), 9, 3, 9.61, 0.16
 utip, v0, p1, p2, p3, v_min, v_max, th_min, th_max = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 0.0, 5.5
 n_w, p_av, bw_, ap, ap_, kp, p_len, ld, k_1, k_2 = 1024, 1.2e3, bw / n_c, 2.0, 2.8, 0.2, 10e6, 3.33e-3, 1.0, 0.0512
-nu, a_o, r_num, th_num, d_00, d_01, d_c, th_c_num = 0.99 / p_av, 0.0, 25, 25, 1.0, -np.log(0.93) / ld, 1e-10, int(1e4)
 r_p, ra_tol, ra_conf, fr_tol, gm_, h_bs, h_u, h_gn = 1e-2, 1e-10, 10, 40.0, linear((5e6 * 40) / bw_), 80.0, 200.0, 0.0
+nu, a_o, r_num, th_num, d_00, d_01, d_c, th_c_num = 0.99 / p_av, 50.0, 25, 25, 1.0, -np.log(0.93) / ld, 1e-10, int(1e4)
 
 """
 DTOs
