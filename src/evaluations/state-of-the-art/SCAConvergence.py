@@ -1,5 +1,5 @@
 """
-This script evaluates the convergence of the Successive Convex Approximation (SCA) Algorithm as described in the
+This script evaluates the convergence of the Successive Convex Approximation (SCA) algorithm as described in the
 state-of-the-art paper referenced below -- to solve the optimization problem outlined in our paper.
 
 Given the initial UAV position (x_U, y_U, H_U) and the final UAV position to serve a GN request that arose,
@@ -59,14 +59,16 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 """
 Configurations-II: Simulation parameters
 """
-pi = np.pi
+bw = 20e6
+n_c, n_x = 4, 3
 np.random.seed(6)
+pi, bw_ = np.pi, bw / n_c
 a, m, m_ip, n = 1e3, 126, 2, 400
+a_los, a_nlos, kappa = 2.0, 2.8, 0.2
 h_bs, h_uav, h_gns = 80.0, 200.0, 0.0
 r_bounds, th_bounds = (-a, a), (0, 2 * pi)
-bw_, a_los, a_nlos, kappa = 2.5e6, 2.0, 2.8, 0.2
 x_g = tf.constant([[-570.0, 601.0]], dtype=tf.float64)
-output_log = '../../logs/evaluations/sca_convergence.log'
+output_log = '../../../logs/evaluations/sca_convergence.log'
 p_avg, m_post = np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1], (m + 2) * m_ip
 utip, v0, p1, p2, p3, v_min, v_max, v_num, omega = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 25, 1.0
 nu, data_len, arr_rates = 0.99 / p_avg, [1e6, 10e6, 100e6][1], {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}
@@ -131,7 +133,7 @@ class RandomTrajectoriesGeneration(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb is not None:
             print(f'[ERROR] RandomTrajectoriesGeneration Termination: Tearing things down - '
-                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}')
+                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
 # noinspection PyMethodMayBeStatic
@@ -160,7 +162,7 @@ class DeterministicTrajectoriesGeneration(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb is not None:
             print(f'[ERROR] DeterministicTrajectoriesGeneration Termination: Tearing things down - '
-                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}')
+                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
 # noinspection PyMethodMayBeStatic
@@ -232,7 +234,7 @@ class LinkPerformance(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print(f'[INFO] LinkPerformance Termination: Tearing things down - '
-              f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}')
+              f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}.')
 
 
 """
@@ -380,24 +382,23 @@ def solve(p_, v_, n_w):
     return p_var.value, v_var.value, prb.value
 
 
-def converged(f_prev, f_next):
-    return abs(f_next - f_prev) < sca_tol
-
-
 def analyze(n_w):
     try:
 
         p_, v_ = setup(n_w)
-        c, f_prev, f_next, lagr_values = 0, 0.0, 0.0, {}
+        c, conv, f_prev, f_next, lagr_values = 0, False, 0.0, 0.0, {}
 
-        while c < sca_conf or not converged(f_prev, f_next):
+        while not conv or c < sca_conf:
             f_prev = f_next
-            c += 1 if converged(f_prev, f_next) else -c
 
             # noinspection PyTypeChecker
             p, v, f_next = solve(p_, v_, n_w)
 
             lagr_values[time.monotonic()] = f_next
+
+            conv = abs(f_next - f_prev) < sca_tol
+            c += 1 if conv else -c
+
             tf.compat.v1.assign(p_, p, validate_shape=True, use_locking=True)
             tf.compat.v1.assign(v_, v, validate_shape=True, use_locking=True)
 
@@ -407,11 +408,11 @@ def analyze(n_w):
 
     except Exception as e:
         print('[ERROR] SCAConvergence analyze: Exception caught while analyzing the convergence properties '
-              'of the Successive Convex Approximation algorithm - {}'.format(traceback.print_tb(e.__traceback__)))
+              f'of the Successive Convex Approximation (SCA) algorithm - {traceback.print_tb(e.__traceback__)}.')
         return False
 
 
 # Run Trigger
 if __name__ == '__main__':
     print(f'[INFO] SCAConvergence main: Successive Convex Approximation | Data Length = {data_len / 1e6} Mb | '
-          f'UAV Average Power Constraint = {p_avg / 1e3} kW | Status of SCA Convergence Analysis = {analyze(1024)}')
+          f'UAV Average Power Constraint = {p_avg / 1e3} kW | Status of SCA Convergence Analysis = {analyze(1024)}.')

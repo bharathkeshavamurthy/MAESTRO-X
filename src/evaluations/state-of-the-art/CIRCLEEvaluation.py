@@ -62,29 +62,28 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 """
 Configurations-II: Simulation parameters
 """
-pi = np.pi
-bw_ = 2.5e6
+bw = 20e6
+n_c, n_x = 4, 3
 np.random.seed(6)
+pi, bw_ = np.pi, bw / n_c
 snr_0 = linear((5e6 * 40) / bw_)
-a, m, n, omi = 1e3, 256, 1000, 1.0
+a, m, n, omi = 1e3, 256, 30, 1.0
 a_los, a_nlos, kappa = 2.0, 2.8, 0.2
-k_1, k_2, z_1, z_2, conf, tol = 1.0, np.log(100) / 90.0, 9.61, 0.16, 3, 1e-3
 r_bounds, th_bounds, h_bs, h_uavs, h_gns = (-a, a), (0, 2 * pi), 80.0, 200.0, 0.0
-utip, v0, p1, p2, p3, v_min, v_max, v_num = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 10
+k_1, k_2, z_1, z_2, ra_conf, ra_tol = 1.0, np.log(100) / 90.0, 9.61, 0.16, 10, 1e-10
+utip, v0, p1, p2, p3, v_min, v_max, v_num = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 25
 data_lens, arr_rates, num_uavs, num_gns = [1e6, 10e6, 100e6], {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}, 1, n
 
 """
 Configurations-III: Deployment settings
 """
 
-r_uavs = [500.0]
-# r_uavs = [333.33, 666.67]
-# r_uavs = [250.0, 500.0, 750.0]
-
 x_bs = tf.constant([0.0, 0.0], dtype=tf.float64)
 
 r_gns, th_gns = uniform(0, a ** 2, num_gns) ** 0.5, uniform(0, 2 * pi, num_gns)
 x_gns = tf.constant(list(zip(r_gns * np.cos(th_gns), r_gns * np.sin(th_gns))), dtype=tf.float64)
+
+r_uavs = [500.0]  # r_uavs (2 UAVs) = [333.33, 666.67] | r_uavs (3 UAVs) = [250.0, 500.0, 750.0]
 
 th_uavs = [np.linspace(0, 2 * pi, m) for _ in range(num_uavs)]
 x_uavs = tf.constant([list(zip(r_uavs[_u] * np.cos(th_uavs[_u]),
@@ -174,13 +173,13 @@ class LinkPerformance(object):
         args = (df, nc, y)
         mid, conv, c = 0.0, False, 0
 
-        while not conv or c < conf:
+        while not conv or c < ra_conf:
             mid = (lo + hi) / 2
             if (f(lo, *args) * f(hi, *args)) > 0.0:
                 lo = mid
             else:
                 hi = mid
-            conv = abs(lo - hi) < tol
+            conv = abs(lo - hi) < ra_tol
             c += 1 if conv else -c
 
         return mid
@@ -216,7 +215,7 @@ class LinkPerformance(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print(f'[INFO] LinkPerformance Termination: Tearing things down - '
-              f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}')
+              f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}.')
 
 
 """
@@ -339,6 +338,7 @@ def evaluate(n_w):
                              wait_times, serv_times, serv_energies, n_w))
 
         env.run()
+
         comm_serv_times, queue_wait_times = np.array(serv_times), np.array(wait_times)
 
         avg_serv_time, avg_wait_time = np.mean(comm_serv_times), np.mean(queue_wait_times)
@@ -349,7 +349,7 @@ def evaluate(n_w):
 
         print(f'[INFO] CIRCLEEvaluation evaluate: UAVs = {num_uavs} | GNs/Requests = {num_gns} | '
               f'Data Length = {data_len / 1e6} Mb | Average Power Consumption = {avg_serv_power / 1e3} kW | '
-              f'Comm Times = {avg_serv_time} s | Wait Times = {avg_wait_time} s | Total Times = {avg_total_time} s')
+              f'Comm = {avg_serv_time} seconds | Wait = {avg_wait_time} seconds | Total = {avg_total_time} seconds.')
 
 
 # Run Trigger

@@ -1,5 +1,5 @@
 """
-This script evaluates the convergence of the Competitive Swarm Optimization (CSO) Algorithm as described in our paper.
+This script evaluates the convergence of the Competitive Swarm Optimization (CSO) algorithm as described in our paper.
 
 Given the initial UAV position (x_U, y_U, H_U) and the "optimal" final UAV position to serve a GN request that arose,
 the CSO algorithm determines the UAV's "optimal" trajectory segments (and their corresponding forward velocities).
@@ -57,18 +57,19 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 """
 Configurations-II: Simulation parameters
 """
-pi = np.pi
-bw_ = 2.5e6
+bw = 20e6
+n_c, n_x = 4, 3
 np.random.seed(6)
+pi, bw_ = np.pi, bw / n_c
 snr_0 = linear((5e6 * 40) / bw_)
 a, m, m_ip, n = 1e3, 126, 2, 400
 a_los, a_nlos, kappa = 2.0, 2.8, 0.2
 h_bs, h_uav, h_gns = 80.0, 200.0, 0.0
 r_bounds, th_bounds = (-a, a), (0, 2 * pi)
 x_g = tf.constant([[-570.0, 601.0]], dtype=tf.float64)
-output_log = '../../logs/evaluations/cso_convergence.log'
-p_avg = np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
-k_1, k_2, z_1, z_2, conf, tol, m_post = 1.0, np.log(100) / 90.0, 9.61, 0.16, 10, 1e-5, m_ip * (m + 2)
+output_log = '../../../logs/evaluations/cso_convergence.log'
+p_avg, cso_conf, cso_tol = np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1], 5, 1e-5
+k_1, k_2, z_1, z_2, ra_conf, ra_tol, m_post = 1.0, np.log(100) / 90.0, 9.61, 0.16, 10, 1e-10, m_ip * (m + 2)
 nu, data_len, arr_rates = 0.99 / p_avg, [1e6, 10e6, 100e6][1], {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}
 x_0, x_m = tf.constant([[400.0, -300.0]], dtype=tf.float64), tf.constant([[-387.50, 391.50]], dtype=tf.float64)
 utip, v0, p1, p2, p3, k_max, v_min, v_max, v_num, omega = 200.0, 7.2, 580.65, 790.6715, 0.0073, 100, 0.0, 55.0, 25, 1.0
@@ -134,7 +135,7 @@ class RandomTrajectoriesGeneration(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb is not None:
             print(f'[ERROR] RandomTrajectoriesGeneration Termination: Tearing things down - '
-                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}')
+                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
 # noinspection PyMethodMayBeStatic
@@ -163,7 +164,7 @@ class DeterministicTrajectoriesGeneration(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb is not None:
             print(f'[ERROR] DeterministicTrajectoriesGeneration Termination: Tearing things down - '
-                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}')
+                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
 # noinspection PyMethodMayBeStatic
@@ -194,13 +195,13 @@ class LinkPerformance(object):
         args = (df, nc, y)
         mid, conv, c = 0.0, False, 0
 
-        while not conv or c < conf:
+        while not conv or c < ra_conf:
             mid = (lo + hi) / 2
             if (f(lo, *args) * f(hi, *args)) > 0.0:
                 lo = mid
             else:
                 hi = mid
-            conv = abs(lo - hi) < tol
+            conv = abs(lo - hi) < ra_tol
             c += 1 if conv else -c
 
         return mid
@@ -236,7 +237,7 @@ class LinkPerformance(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print(f'[INFO] LinkPerformance Termination: Tearing things down - '
-              f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}')
+              f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}.')
 
 
 """
@@ -345,7 +346,7 @@ def update(p, v, u, w, t_j, t_j_1, p_bar, v_bar, f_hats, n_w):
 
     argmin__ = np.argmin([f_hat_t_j, f_hat_t_j_1])
     j_win, p_w, v_w, j_los, p_l, v_l, u_l, w_l = (t_j, p_t_j, v_t_j, t_j_1, p_t_j_1, v_t_j_1, u_t_j_1, w_t_j_1) \
-        if (argmin__ == 0) else (t_j_1, p_t_j_1, v_t_j_1, t_j, p_t_j, v_t_j, u_t_j, w_t_j)
+        if argmin__ == 0 else (t_j_1, p_t_j_1, v_t_j_1, t_j, p_t_j, v_t_j, u_t_j, w_t_j)
 
     r_j = tf.random.uniform(shape=[3, ], dtype=tf.float64)
     tf.compat.v1.assign(f_hats[t_j], f_hat_t_j, validate_shape=True, use_locking=True)
@@ -373,9 +374,11 @@ def cso(p, v, u, w, n_w):
 
     while k <= k_max:
         t = tf.random.shuffle(indices)
+
         with ThreadPoolExecutor(max_workers=n_w) as executor:
             for j in range(0, n, 2):
                 executor.submit(update, p, v, u, w, t[j], t[j + 1], p_bar, v_bar, f_hats, n_w)
+
         k += 1
 
     i = min(indices, key=lambda _k: f_hats[_k].numpy())
@@ -385,13 +388,10 @@ def cso(p, v, u, w, n_w):
 
 def analyze(n_w):
     vals = np.linspace(v_min, v_max, v_num)
-    c, lagrs, f_star_old, f_star_new = 0, {}, 0.0, 0.0
     v = tf.Variable(np.random.choice(vals, size=[n, m_post]))
     w = tf.Variable(np.random.choice(vals, size=[n, m_post]))
     u = tf.Variable(np.random.choice(vals, size=[n, m_post, 2]))
-
-    def converged():
-        return f_star_new.numpy() - f_star_old.numpy() > tol
+    c, conv, lagrs, f_star_old, f_star_new = 0, False, {}, 0.0, 0.0
 
     try:
 
@@ -399,11 +399,16 @@ def analyze(n_w):
         d_gen = DeterministicTrajectoriesGeneration()
         p = tf.concat([d_gen.generate(), r_gen.optimize(r_gen.generate(n_w), n_w)], axis=0)
 
-        while c < conf or not converged():
+        while not conv or c < cso_conf:
             f_star_old = f_star_new
+
             # noinspection PyTypeChecker
             p_star, u_star, v_star, w_star, f_star_new = cso(p, v, u, w, n_w)
+
             lagrs[time.monotonic()] = f_star_new
+
+            conv = np.abs(f_star_new.numpy() - f_star_old.numpy()) < cso_tol
+            c += 1 if conv else -c
 
         with open(output_log, 'w') as f:
             json.dump(lagrs, f)
@@ -411,11 +416,11 @@ def analyze(n_w):
 
     except Exception as e:
         print('[ERROR] CSOConvergence analyze: Exception caught while analyzing the convergence properties '
-              'of the Competitive Swarm Optimization algorithm - {}'.format(traceback.print_tb(e.__traceback__)))
+              f'of the Competitive Swarm Optimization (CSO) algorithm - {traceback.print_tb(e.__traceback__)}.')
         return False
 
 
 # Run Trigger
 if __name__ == '__main__':
     print(f'[INFO] CSOConvergence main: Competitive Swarm Optimization | Data Length = {data_len / 1e6} Mb | '
-          f'UAV Average Power Constraint = {p_avg / 1e3} kW | CSO Convergence Analysis Status = {analyze(1024)}')
+          f'UAV Average Power Constraint = {p_avg / 1e3} kW | CSO Convergence Analysis Status = {analyze(1024)}.')

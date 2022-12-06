@@ -45,17 +45,19 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 """
 Configurations: Simulation parameters
 """
+bw = 20e6
 pi = np.pi
-bw_ = 2.5e6
+n_c, n_x = 4, 3
 np.random.seed(6)
+num_uavs, bw_ = 1, bw / n_c
 snr_0 = linear((5e6 * 40) / bw_)
 utip, v0, p1, p2, p3 = 200.0, 7.2, 580.65, 790.6715, 0.0073
 rho, sigma_mul, sigma_alpha, tmax_csca, lmax_admm = 3.0, 0.1, 0.1, 10, 10
 radius, num_slots, num_gns, bs_ht, uav_ht, gn_ht = 1e3, 10, 30, 80.0, 200.0, 0.0
 v_min, v_max, arr_rates = 0.0, 55.0, {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}
-alpha_los, alpha_nlos, beta_los, beta_nlos, z1, z2 = 2.0, 2.8, 1e-4, 1e-3, 9.61, 0.16
+alpha_los, alpha_nlos, beta_los, beta_nlos, z1, z2 = 2.0, 2.8, 1e-3, 1e-4, 9.61, 0.16
+data_len, p_avg = [1e6, 10e6, 100e6][0], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
 max_iters, eps_abs, eps_rel, warm_start, verbose, csca_conf, csca_tol = int(1e6), 1e-6, 1e-6, True, True, 5, 1e-5
-num_uavs, data_len, p_avg = 1, [1e6, 10e6, 100e6][0], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
 
 """
 Deployments (BS, GNs, and UAVs)
@@ -283,7 +285,8 @@ def work(i, fn, tau_t, zs_t, vs_t, r_u_s_t, r_c_t, pipe):
 
     while True:
         prob.solve('SCS', max_iters=max_iters, eps_abs=eps_abs, eps_rel=eps_rel, warm_start=warm_start, verbose=verbose)
-        print(f'i = {i} | Primal Value = {prob.value} | Problem Status = {prob.solution.status}')
+
+        print(f'i = {i} | Primal Value = {prob.value} | Problem Status = {prob.solution.status}.')
 
         pipe.send((i, zs.value, vs.value, r_u_s.value, r_c.value))
         z_hats.value, z_dots.value, z_tildes.value, z_bars.value, v_tildes.value, \
@@ -311,7 +314,9 @@ def admm(tau_t, zs_t, vs_t, r_u_s_t, r_c_t):
     for i in range(num_slots):
         loc, rem = Pipe()
         pipes.append(loc)
+
         procs.append(Process(target=work, args=(i, r_c_t, tau_t, zs_t[i, :, :], vs_t[i, :], r_u_s_t[i, :], r_c_t, rem)))
+
         procs[-1].start()
 
     for l_idx in range(lmax_admm):
@@ -359,8 +364,8 @@ def evaluate():
     t_avg = np.mean([s_times[_m][_i] + w_times[_m][_i] for _m in range(m) for _i in range(len(s_times[_m]))], axis=0)
 
     print(f'[INFO] ADMMEvaluation evaluate: Length = {data_len / 1e6} Mb | '
-          f'Average Power Constraint = {p_avg / 1e3} kW | Average Service Time = {s_avg} s | '
-          f'Average In-Queue Waiting Time = {w_avg} seconds | Average Total Time = {t_avg} s.')
+          f'Average Power Constraint = {p_avg / 1e3} kW | Average Service Time = {s_avg} seconds | '
+          f'Average In-Queue Waiting Time = {w_avg} seconds | Average Total Time = {t_avg} seconds.')
 
 
 # Run Trigger

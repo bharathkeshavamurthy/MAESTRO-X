@@ -67,7 +67,7 @@ data_payload_sizes = [1e6, 10e6, 100e6]
 arrival_rates = {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}
 
 # The number of UAVs in model training and in this post-processing evaluations
-number_of_uavs = 3
+number_of_uavs = 1
 
 # The height of all the UAVs during model training and during this post-processing evaluation (in meters)
 uav_height = 200.0
@@ -299,7 +299,7 @@ class LinkPerformance(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print(f'[INFO] LinkPerformance Termination: Tearing things down - '
-              f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}')
+              f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}.')
 
 
 """
@@ -322,17 +322,24 @@ def multiple_uav_relays(payload_sizes, uav_trajs, gn_alts, gn_coords, num_worker
     gu_angles = {k: {_k: tf.asin(tf.divide(gu_heights[k][_k], gu_distances[k][_k]))
                      for _k in v.keys()} for k, v in gu_xy_distances.items()}
 
-    lpf = LinkPerformance(2.5e6, linear(80.0), 2.0, 2.8, 0.2, 1.0, np.log(100) / 90.0, 9.61, 0.16, 100, 1e-10)
+    """
+    Configurations-III: Channel parameters
+    """
+    bw, n_c = 20e6, 4
+    bw_, ra_conf, ra_tol = bw / n_c, 10, 1e-10
+    s_0, al, anl, kp, k_1, k_2, z_1, z_2 = linear((5e6 * 40) / bw_), 2.0, 2.8, 0.2, 1.0, np.log(100) / 90.0, 9.61, 0.16
+
+    lperf = LinkPerformance(bw_, s_0, al, anl, kp, k_1, k_2, z_1, z_2, ra_conf, ra_tol)
 
     for k, v in gu_delays.items():
-        for _k, _v in v.items():
+        for _k, a_v in v.items():
             dists, angles = gu_distances[k][_k], gu_angles[k][_k]
-            gu_delays[k][_k] = lpf.evaluate(dists, angles, payload_sizes, num_workers).aggregated_average_delay
+            gu_delays[k][_k] = lperf.evaluate(dists, angles, payload_sizes, num_workers).aggregated_average_delay
 
     return gu_delays
 
 
-def evaluate_operations(num_workers=1024):
+def evaluate_operations(num_workers):
     uav_positions = {0: uav_0_trajectory, 1: uav_1_trajectory, 2: uav_2_trajectory}
     delays = multiple_uav_relays(data_payload_sizes, uav_positions, gn_heights, gn_positions, num_workers)
 
@@ -354,17 +361,17 @@ def evaluate_operations(num_workers=1024):
             totals[_k] = services[_k] + waits[_k]
 
         print(f'[DEBUG] DDQNEvaluation evaluate_operations: Payload Size = {p_len} Mb | '
-              f'Average Communication Service Time = {np.mean([_ for _ in services.values()])} seconds\n')
+              f'Average Communication Service Time = {np.mean([_ for _ in services.values()])} seconds.\n')
 
         print(f'[DEBUG] DDQNEvaluation evaluate_operations: Payload Size = {p_len} Mb | '
-              f'Average Queue Wait Time = {np.mean([_ for _ in waits.values()])} seconds\n')
+              f'Average Queue Wait Time = {np.mean([_ for _ in waits.values()])} seconds.\n')
 
         print(f'[INFO] DDQNEvaluation evaluate_operations: '
               f'[{number_of_uavs}] UAV Relays | Payload Length = {p_len} Mb | '
               f'UAV Power Consumption Constraint = {evaluate_power_consumption() / 1e3} kW | '
-              f'Average Total Service Delay = {np.mean([_ for _ in totals.values()])} seconds')
+              f'Average Total Service Delay = {np.mean([_ for _ in totals.values()])} seconds.')
 
 
 # Run Trigger
 if __name__ == '__main__':
-    evaluate_operations()
+    evaluate_operations(1024)

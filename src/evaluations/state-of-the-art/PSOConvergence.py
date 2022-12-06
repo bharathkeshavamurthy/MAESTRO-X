@@ -55,14 +55,16 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 """
 Configurations-II: Simulation parameters
 """
-pi = np.pi
+bw = 20e6
+n_c, n_x = 4, 3
 np.random.seed(6)
+pi, bw_ = np.pi, bw / n_c
 a, m, m_ip, n = 1e3, 126, 2, 400
+a_los, a_nlos, kappa = 2.0, 2.8, 0.2
 h_bs, h_uav, h_gns = 80.0, 200.0, 0.0
 r_bounds, th_bounds = (-a, a), (0, 2 * pi)
-bw_, a_los, a_nlos, kappa = 2.5e6, 2.0, 2.8, 0.2
 x_g = tf.constant([[-570.0, 601.0]], dtype=tf.float64)
-output_log = '../../logs/evaluations/pso_convergence.log'
+output_log = '../../../logs/evaluations/pso_convergence.log'
 p_avg, pso_conf, pso_tol = np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1], 5, 1e-5
 utip, v0, p1, p2, p3, k_max, v_min, v_max, v_num = 200.0, 7.2, 580.65, 790.6715, 0.0073, 100, 0.0, 55.0, 25
 k_1, k_2, z_1, z_2, ra_conf, ra_tol, m_post = 1.0, np.log(100) / 90.0, 9.61, 0.16, 10, 1e-10, m_ip * (m + 2)
@@ -127,7 +129,7 @@ class RandomTrajectoriesGeneration(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb is not None:
             print(f'[ERROR] RandomTrajectoriesGeneration Termination: Tearing things down - '
-                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}')
+                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
 # noinspection PyMethodMayBeStatic
@@ -156,7 +158,7 @@ class DeterministicTrajectoriesGeneration(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb is not None:
             print(f'[ERROR] DeterministicTrajectoriesGeneration Termination: Tearing things down - '
-                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}')
+                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
 # noinspection PyMethodMayBeStatic
@@ -229,7 +231,7 @@ class LinkPerformance(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print(f'[INFO] LinkPerformance Termination: Tearing things down - '
-              f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}')
+              f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}.')
 
 
 """
@@ -375,24 +377,27 @@ def pso(p, v, u, w, n_w):
 
 def analyze(n_w):
     vals = np.linspace(v_min, v_max, v_num)
-    c, lagrs, f_star_old, f_star_new = 0, {}, 0.0, 0.0
     v = tf.Variable(np.random.choice(vals, size=[n, m_post]))
     w = tf.Variable(np.random.choice(vals, size=[n, m_post]))
     u = tf.Variable(np.random.choice(vals, size=[n, m_post, 2]))
-
-    def converged():
-        return f_star_new.numpy() - f_star_old.numpy() > pso_tol
+    c, conv, lagrs, f_star_old, f_star_new = 0, False, {}, 0.0, 0.0
 
     try:
+
         r_gen = RandomTrajectoriesGeneration()
         d_gen = DeterministicTrajectoriesGeneration()
         p = tf.concat([d_gen.generate(), r_gen.optimize(r_gen.generate(n_w), n_w)], axis=0)
 
-        while c < pso_conf or not converged():
+        while not conv or c < pso_conf:
             f_star_old = f_star_new
+
             # noinspection PyTypeChecker
             p_star, u_star, v_star, w_star, f_star_new = pso(p, v, u, w, n_w)
+
             lagrs[time.monotonic()] = f_star_new
+
+            conv = np.abs(f_star_new.numpy() - f_star_old.numpy()) < pso_tol
+            c += 1 if conv else -c
 
         with open(output_log, 'w') as f:
             json.dump(lagrs, f)
@@ -400,11 +405,11 @@ def analyze(n_w):
 
     except Exception as e:
         print('[ERROR] PSOConvergence analyze: Exception caught while analyzing the convergence properties '
-              'of the Particle Swarm Optimization algorithm - {}'.format(traceback.print_tb(e.__traceback__)))
+              f'of the Particle Swarm Optimization (PSO) algorithm - {traceback.print_tb(e.__traceback__)}.')
         return False
 
 
 # Run Trigger
 if __name__ == '__main__':
     print(f'[INFO] PSOConvergence main: Particle Swarm Optimization | Data Length = {data_len / 1e6} Mb | '
-          f'UAV Average Power Constraint = {p_avg / 1e3} kW | Convergence Analysis Status = {analyze(1024)}')
+          f'UAV Average Power Constraint = {p_avg / 1e3} kW | Convergence Analysis Status = {analyze(1024)}.')

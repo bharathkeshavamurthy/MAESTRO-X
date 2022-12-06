@@ -54,17 +54,18 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 """
 Configurations-II: Simulation parameters
 """
-pi = np.pi
-bw_ = 2.5e6
+bw = 20e6
+n_c, n_x = 4, 3
 np.random.seed(6)
+pi, bw_ = np.pi, bw / n_c
 a, m, m_ip, n = 1e3, 14, 2, 30
 snr_0 = linear((5e6 * 40) / bw_)
 a_los, a_nlos, kappa, m_post = 2.0, 2.8, 0.2, m_ip * (m + 2)
 r_bounds, th_bounds, h_uavs, h_gns = (-a, a), (0, 2 * pi), 200.0, 0.0
 max_iters, eps_abs, eps_rel, warm_start, verbose = int(1e6), 1e-6, 1e-6, True, True
 utip, v0, p1, p2, p3, v_min, v_max, v_num = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 10
-data_len, arr_rates, num_uavs, num_gns = [1e6, 10e6, 100e6][1], {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}, 2, n
-pc, k_1, k_2, z_1, z_2, conf, tol, cvx_conf, cvx_tol = 90.0, 1.0, np.log(100) / 90.0, 9.61, 0.16, 3, 1e-3, 1, 1000.0
+data_len, arr_rates, num_uavs, num_gns = [1e6, 10e6, 100e6][1], {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}, 1, n
+pc, k_1, k_2, z_1, z_2, ra_conf, ra_tol, cx_conf, cx_tol = 90.0, 1.0, np.log(100) / 90.0, 9.61, 0.16, 10, 1e-10, 3, 1e-3
 
 """
 Configurations-III: Deployment parameters
@@ -147,7 +148,7 @@ class RandomTrajectoriesGeneration(object):
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb is not None:
             print(f'[ERROR] RandomTrajectoriesGeneration Termination: Tearing things down - '
-                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}')
+                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
 # noinspection PyMethodMayBeStatic
@@ -178,13 +179,13 @@ class LinkPerformance(object):
         args = (df, nc, y)
         mid, conv, c = 0.0, False, 0
 
-        while not conv or c < conf:
+        while not conv or c < ra_conf:
             mid = (lo + hi) / 2
             if (f(lo, *args) * f(hi, *args)) > 0.0:
                 lo = mid
             else:
                 hi = mid
-            conv = abs(lo - hi) < tol
+            conv = abs(lo - hi) < ra_tol
             c += 1 if conv else -c
 
         return mid
@@ -239,7 +240,7 @@ class LinkPerformance(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print(f'[INFO] LinkPerformance Termination: Tearing things down - '
-              f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}')
+              f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}.')
 
 
 """
@@ -305,13 +306,13 @@ def solve(u, qi, qf, *args):
     prb = cp.Problem(cp.Minimize(nrg), cts)
     prb.solve('SCS', max_iters=max_iters, eps_abs=eps_abs, eps_rel=eps_rel, warm_start=warm_start, verbose=verbose)
 
-    print(f'UAV Index = {u} | Primal Value = {prb.value} | Problem Status = {prb.solution.status}')
+    print(f'UAV Index = {u} | Primal Value = {prb.value} | Problem Status = {prb.solution.status}.')
 
     return q_var.value, t_var.value, tau_var.value, prb.value
 
 
 def converged(f_prev, f_next):
-    return abs(f_next - f_prev) < cvx_tol
+    return abs(f_next - f_prev) < cx_tol
 
 
 def sca():
@@ -324,7 +325,7 @@ def sca():
     for u in range(num_uavs):
         c, f_prev, f_next = 0, 0.0, 0.0
 
-        while c < cvx_conf or not converged(f_prev, f_next):
+        while c < cx_conf or not converged(f_prev, f_next):
             lperf = LinkPerformance()
             c, f_prev = c + 1 if converged(f_prev, f_next) else 0, f_next
             delta_ = tf.norm(tf.roll(q_[u], -1, 0)[:-1, :] - q_[u, :-1, :], axis=1)
@@ -388,7 +389,7 @@ def evaluate():
 
     print(f'[INFO] SCAEvaluation evaluate: UAVs = {n_u} | GNs/Requests = {n_k} | '
           f'Data Length = {data_len / 1e6} Mb | Average Power Consumption = {avg_pwr / 1e3} kW | '
-          f'Comm Times = {avg_s_time} s | Wait Times = {avg_w_time} s | Total Times = {avg_t_time} s')
+          f'Comm = {avg_s_time} seconds | Wait = {avg_w_time} seconds | Total = {avg_t_time} seconds.')
 
 
 # Run Trigger
