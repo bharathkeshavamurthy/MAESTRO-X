@@ -47,8 +47,8 @@ Configurations: Simulation parameters
 """
 bw = 20e6
 pi = np.pi
-n_c, n_x = 4, 3
 np.random.seed(6)
+n_c, n_xu, n_xb = 4, 3, 10
 num_uavs, bw_ = 1, bw / n_c
 snr_0 = linear((5e6 * 40) / bw_)
 utip, v0, p1, p2, p3 = 200.0, 7.2, 580.65, 790.6715, 0.0073

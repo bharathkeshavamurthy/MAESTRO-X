@@ -134,9 +134,8 @@ def evaluate_power_consumption(v=10.0):
     UAV mobility power consumption
     """
     u_tip, v_0, p_1, p_2, p_3 = 200.0, 7.2, 580.65, 790.6715, 0.0073
-    return (p_1 * (1 + ((3 * (v ** 2)) / (u_tip ** 2)))) + \
-        (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5) + \
-        (p_3 * (v ** 3))
+    return (p_1 * (1 + ((3 * (v ** 2)) / (u_tip ** 2)))) + (p_3 * (v ** 3)) + \
+        (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5)
 
 
 def gn_request(env, num, chs, w_times, serv_times):
@@ -165,21 +164,22 @@ class LinkPerformance(object):
     Link performance
     """
 
-    def __init__(self, channel_bandwidth, reference_snr_at_1_meter, los_path_loss_exponent,
-                 nlos_path_loss_exponent, nlos_attenuation_constant, los_rician_factor_1, los_rician_factor_2,
-                 propagation_environment_parameter_1, propagation_environment_parameter_2,
-                 convergence_confidence, bisection_method_tolerance):
+    def __init__(self, channel_bandwidth, reference_snr_at_1_meter,
+                 los_path_loss_exponent, nlos_path_loss_exponent, nlos_attenuation_constant,
+                 los_rician_factor_1, los_rician_factor_2, propagation_environment_parameter_1,
+                 propagation_environment_parameter_2, convergence_confidence, bisection_method_tolerance):
         self.channel_bandwidth = channel_bandwidth
-        self.reference_snr_at_1_meter = reference_snr_at_1_meter
+        self.los_rician_factor_1 = los_rician_factor_1
+        self.los_rician_factor_2 = los_rician_factor_2
+        self.convergence_confidence = convergence_confidence
         self.los_path_loss_exponent = los_path_loss_exponent
         self.nlos_path_loss_exponent = nlos_path_loss_exponent
         self.nlos_attenuation_constant = nlos_attenuation_constant
-        self.los_rician_factor_1 = los_rician_factor_1
-        self.los_rician_factor_2 = los_rician_factor_2
+        self.reference_snr_at_1_meter = reference_snr_at_1_meter
+        self.bisection_method_tolerance = bisection_method_tolerance
         self.propagation_environment_parameter_1 = propagation_environment_parameter_1
         self.propagation_environment_parameter_2 = propagation_environment_parameter_2
-        self.convergence_confidence = convergence_confidence
-        self.bisection_method_tolerance = bisection_method_tolerance
+
         self.evaluation_output = namedtuple('link_performance_evaluation_output',
                                             ['los_throughputs', 'nlos_throughputs', 'average_throughputs',
                                              'average_delays', 'aggregated_average_delay'])
@@ -326,6 +326,7 @@ def multiple_uav_relays(payload_sizes, uav_trajs, gn_alts, gn_coords, num_worker
     Configurations-III: Channel parameters
     """
     bw, n_c = 20e6, 4
+    # n_xu, n_xb = 3, 10
     bw_, ra_conf, ra_tol = bw / n_c, 10, 1e-10
     s_0, al, anl, kp, k_1, k_2, z_1, z_2 = linear((5e6 * 40) / bw_), 2.0, 2.8, 0.2, 1.0, np.log(100) / 90.0, 9.61, 0.16
 

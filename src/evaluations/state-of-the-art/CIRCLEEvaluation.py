@@ -62,9 +62,9 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 """
 Configurations-II: Simulation parameters
 """
-bw = 20e6
-n_c, n_x = 4, 3
 np.random.seed(6)
+bw, n_c = 20e6, 4
+n_xu, n_xb = 3, 10
 pi, bw_ = np.pi, bw / n_c
 snr_0 = linear((5e6 * 40) / bw_)
 a, m, n, omi = 1e3, 256, 30, 1.0

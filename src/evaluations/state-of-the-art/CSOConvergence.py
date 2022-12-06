@@ -57,9 +57,9 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 """
 Configurations-II: Simulation parameters
 """
-bw = 20e6
-n_c, n_x = 4, 3
 np.random.seed(6)
+bw, n_c = 20e6, 4
+n_xu, n_xb = 3, 10
 pi, bw_ = np.pi, bw / n_c
 snr_0 = linear((5e6 * 40) / bw_)
 a, m, m_ip, n = 1e3, 126, 2, 400
@@ -232,8 +232,8 @@ class LinkPerformance(object):
 
     def adapted_throughput(self, d, phi, r_los, r_nlos, n_w):
         with ThreadPoolExecutor(max_workers=n_w) as executor:
-            executor.submit(self.__los_throughput, d, phi, r_los)
             executor.submit(self.__nlos_throughput, d, r_nlos)
+            executor.submit(self.__los_throughput, d, phi, r_los)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         print(f'[INFO] LinkPerformance Termination: Tearing things down - '
