@@ -35,7 +35,7 @@ from concurrent.futures import ThreadPoolExecutor
 Miscellaneous
 """
 
-# NumPy seed
+# Numpy seed
 np.random.seed(6)
 
 # Filter user warnings
@@ -54,7 +54,7 @@ plotly.tools.set_credentials_file(username='bkeshav1', api_key='PUYaTVhV1Ok04I07
 Configurations-III: Simulation parameters
 """
 
-'''Deployment Model'''
+''' Deployment model '''
 
 # The height of the BS from the ground ($H_{B}$) in meters
 BASE_STATION_HEIGHT = 80.0
@@ -65,7 +65,7 @@ UAV_HEIGHT = 200.0
 # The radius of the circular cell under evaluation ($a$) in meters
 CELL_RADIUS = 1e3
 
-''' Motion and Power Consumption Model '''
+''' UAV mobility power consumption model '''
 
 # The mean rotor-induced velocity ($v_{0}$) in m/s
 MEAN_ROTOR_INDUCED_VELOCITY = 7.2
@@ -88,7 +88,7 @@ POWER_PROFILE_CONSTANT_2 = 790.6715
 # The thrust-to-weight ratio in the rotary-wing UAV motion model ($\kappa_{\text{UAV}}{\triangleq}\frac{T}{W}$
 THRUST_TO_WEIGHT_RATIO = 1.0
 
-''' Channel Model '''
+''' Channel model '''
 
 # The additional NLoS attenuation factor ($\kappa$)
 NLoS_ATTENUATION_CONSTANT = 0.2
@@ -126,10 +126,10 @@ LoS_RICIAN_FACTOR_1 = 1.0
 # The propagation environment dependent coefficient ($k_{2}$) for the LoS Rician link model's $K$-factor
 LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
 
-# The reference SNR level at a link distance of 1-meter ($\gamma_{GU}$, $\gamma_{GB}$, and $\gamma_{UB}$) [40 dB]
+# The reference SNR level at a link distance of 1-meter ($\gamma_{GU}$, $\gamma_{GB}$, and $\gamma_{UB}$)
 REFERENCE_SNR_AT_1_METER = linear((5e6 * 40) / CHANNEL_BANDWIDTH)
 
-''' Algorithmic Model '''
+''' Algorithmic model '''
 
 # The convergence confidence level for optimization algorithms in this framework
 CONVERGENCE_CONFIDENCE = 10

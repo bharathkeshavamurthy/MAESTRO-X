@@ -140,7 +140,7 @@ def evaluate_power_consumption(v=10.0):
 
 def gn_request(env, num, chs, w_times, serv_times):
     """
-    SimPy queueing model: GN request
+    Simpy queueing model: GN request
     """
     arrival_time = env.now
     k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
@@ -152,7 +152,7 @@ def gn_request(env, num, chs, w_times, serv_times):
 
 def arrivals(env, chs, n_r, arr, w_times, serv_times):
     """
-    SimPy queueing model: Poisson arrivals
+    Simpy queueing model: Poisson arrivals
     """
     for num in range(n_r):
         env.process(gn_request(env, num, chs, w_times, serv_times))
@@ -181,8 +181,8 @@ class LinkPerformance(object):
         self.propagation_environment_parameter_2 = propagation_environment_parameter_2
 
         self.evaluation_output = namedtuple('link_performance_evaluation_output',
-                                            ['los_throughputs', 'nlos_throughputs', 'average_throughputs',
-                                             'average_delays', 'aggregated_average_delay'])
+                                            ['los_throughputs', 'nlos_throughputs',
+                                             'average_throughputs', 'average_delays', 'aggregated_average_delay'])
 
     def __enter__(self):
         return self

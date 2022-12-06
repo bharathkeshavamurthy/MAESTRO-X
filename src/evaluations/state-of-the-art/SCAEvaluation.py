@@ -102,7 +102,7 @@ def mobility_pwr(v):
 
 def gn_request(env, r, chs, w, s):
     """
-    SimPy queueing model: GN request
+    Simpy queueing model: GN request
     """
     arr = env.now
     k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
@@ -115,7 +115,7 @@ def gn_request(env, r, chs, w, s):
 
 def arrivals(env, chs, n_r, arr, w, s):
     """
-    SimPy queueing model: Poisson arrivals
+    Simpy queueing model: Poisson arrivals
     """
     for r in range(n_r):
         env.process(gn_request(env, r, chs, w, s))

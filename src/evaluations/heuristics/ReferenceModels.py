@@ -1,46 +1,56 @@
 """
-This script evaluates the performance of the BS alone servicing GN requests.
-This script evaluates the performance of stationary UAVs hovering at a fixed height of $H_{U}$ meters above the ground.
-The key metric analyzed in this version (v21.11) of the script is:
-    "UAV Average Power Constraint (in Watts) v GN Active Communication Request Delay (in seconds)"; for
-        Payload Lengths ($L$) = 1.0 Mb, 10.0 Mb, and 100.0 Mb; for both [a BS serving the GNs alone] and for
-        [Number of UAVs ($N_{U}$) = 1, 2, and 3] serving the GNs with BS only acting as the receiver.
+1. This script evaluates the performance of the BS alone servicing GN requests.
+2. This script evaluates the performance of HAPs at a height of $H_{P}$ to serve GN requests.
+3. This script evaluates the performance of an LEO constellation at a height of $H_{L}$ to serve GN requests.
+4. This script evaluates the performance of static UAVs hovering at a fixed height $H_{U}$ to serve GN requests.
 
-Author: Bharath Keshavamurthy <bkeshav1@asu.edu | bkeshava@purdue.edu>
-Organization: School of Electrical, Computer and Energy Engineering, Arizona State University, Tempe, AZ.
-              School of Electrical and Computer Engineering, Purdue University, West Lafayette, IN.
-Copyright (c) 2021. All Rights Reserved.
+The key metric analyzed in this is:
+
+    "UAV Average Power Constraint (in Watts) v GN Active Communication Request Delay (in seconds)";
+    for [BS/HAP/LEO serving the GNs] and for [Number of UAVs ($N_{U}$) = 1, 2, 3, 5, 10];
+    for Payload Lengths ($L$) = 1.0 Mb, 10.0 Mb, and 100.0 Mb.
+
+Author: Bharath Keshavamurthy <bkeshava@purdue.edu | bkeshav1@asu.edu>
+Organization: School of Electrical & Computer Engineering, Purdue University, West Lafayette, IN.
+              School of Electrical, Computer and Energy Engineering, Arizona State University, Tempe, AZ.
+
+Copyright (c) 2022. All Rights Reserved.
 """
 
-"""
-v21.11: Reference Models for Performance Comparison with the SMDP-HCSO Optimal Policy
-"""
-
-# The imports
 import os
 
+"""
+Configurations-I: Tensorflow logging
+"""
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-# import time
+import warnings
 import numpy as np
 import tensorflow as tf
-# from threading import Lock
 from collections import namedtuple
 from simpy import Environment, Resource
 from scipy.stats import rice, ncx2, rayleigh
 from concurrent.futures import ThreadPoolExecutor
 
 """
-CONFIGURATIONS-I: Various Model Parameters
+Miscellaneous
 """
 
+# Numpy seed
 np.random.seed(6)
 
+# Filter user warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+# Global utilities for basic operations
+decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
+
 """
-Deployment Model Parameters
+CONFIGURATIONS-I: Simulation parameters
 """
-# The number of orthogonal channels at the BS ($N_{K}$)
-NUMBER_OF_CHANNELS = 10
+
+''' Deployment model '''
 
 # The height of the BS from the ground ($H_{B}$) in meters
 BASE_STATION_HEIGHT = 80.0
@@ -48,58 +58,24 @@ BASE_STATION_HEIGHT = 80.0
 # The height of the UAV from the ground ($H_{U}$) in meters
 UAV_HEIGHT = 200.0
 
+# The height of the HAP from the ground ($H_{U}$) in meters
+HAP_HEIGHT = 5e6
+
+# The height of the LEO from the ground ($H_{U}$) in meters
+LEO_HEIGHT = 250e6
+
 # The radius of the circular cell under evaluation ($a$) in meters
 CELL_RADIUS = 1000.0
 
 # The total number of GNs (implies communication requests) in the cell under analysis
-NUMBER_OF_REQUESTS = 10000
+NUMBER_OF_REQUESTS = int(1e4)
 
 # The number of communication requests originating in the cell per second ($\Lambda$) in requests/second
 # 1.0 Mb: One request every minute | 10.0 Mb: One request every 5 minutes | 100.0 Mb: One request every 30 minutes
 ARRIVAL_RATES = {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.5555e-4}
 
-"""
-Channel Model Parameters
-"""
-# The reference SNR level at a link distance of 1-meter
-REFERENCE_SNR_AT_1_METER = 1e4
+''' UAV mobility power consumption model '''
 
-# The path-loss exponent for Line of Sight (LoS) links ($\alpha$)
-LoS_PATH_LOSS_EXPONENT = 2.0
-
-# The path-loss exponent for Non-Line of Sight (NLoS) links ($\tilde{\alpha}$)
-NLoS_PATH_LOSS_EXPONENT = 2.8
-
-# The bandwidth of each orthogonal channel assigned to this application ($B$) in Hz
-CHANNEL_BANDWIDTH = 5e6
-
-# The propagation environment specific parameter ($z_{1}$) for LoS/NLoS probability determination
-PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
-
-# The propagation environment specific parameter ($z_{2}$) for LoS/NLoS probability determination
-PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
-
-# The propagation environment dependent coefficient ($k_{1}$) for the LoS Rician link model's $K$-factor
-LoS_RICIAN_FACTOR_1 = 1.0
-
-# The propagation environment dependent coefficient ($k_{2}$) for the LoS Rician link model's $K$-factor
-LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
-
-# The additional attenuation constant for NLoS links ($\kappa$) | This factor affects the large-scale fading dynamics
-NLoS_ATTENUATION_CONSTANT = 0.2
-
-"""
-Design Parameters
-"""
-# The convergence confidence level for optimization algorithms in this framework
-CONVERGENCE_CONFIDENCE = 10
-
-# The tolerance value for the bisection method to find the optimal value of $Z$ for rate adaptation
-BISECTION_METHOD_TOLERANCE = 1e-10
-
-"""
-UAV Motion Model & Power Consumption Profile Parameters
-"""
 # The mean rotor-induced velocity ($v_{0}$) in m/s
 MEAN_ROTOR_INDUCED_VELOCITY = 7.2
 
@@ -121,123 +97,117 @@ POWER_PROFILE_CONSTANT_3 = 0.0073
 # The thrust-to-weight ratio in the rotary-wing UAV motion model ($\kappa_{\text{UAV}}{\triangleq}\frac{T}{W}$
 THRUST_TO_WEIGHT_RATIO = 1.0
 
+''' Channel model '''
+
+# The total FCC-allocated bandwidth for this application ($B$) in Hz
+TOTAL_BANDWIDTH = 20e6
+
+# The number of orthogonal data channels ($N_{C}$) in this deployment
+NUMBER_OF_CHANNELS = 4
+
+# The bandwidth available per orthogonal data channel ($B_{k}$) in Hz
+CHANNEL_BANDWIDTH = TOTAL_BANDWIDTH / NUMBER_OF_CHANNELS
+
+# The number of transceivers per UAV in our deployment ($N_{X|U}$)
+NUMBER_OF_TRANSCEIVERS_UAV = 4
+
+# The number of transceivers at the BS in our deployment ($N_{X|B}$)
+NUMBER_OF_TRANSCEIVERS_BS = 10
+
+# The number of transceivers at the HAP in our deployment ($N_{X|P}$)
+NUMBER_OF_TRANSCEIVERS_HAP = 10
+
+# The number of transceivers at the LEO in our deployment ($N_{X|L}$)
+NUMBER_OF_TRANSCEIVERS_LEO = 10
+
+# The reference SNR level at a link distance of 1-meter ($\gamma_{GU}$, $\gamma_{GB}$, and $\gamma_{UB}$)
+REFERENCE_SNR_AT_1_METER = linear((5e6 * 40) / CHANNEL_BANDWIDTH)
+
+# The path-loss exponent for Line of Sight (LoS) links ($\alpha$)
+LoS_PATH_LOSS_EXPONENT = 2.0
+
+# The path-loss exponent for Non-Line of Sight (NLoS) links ($\tilde{\alpha}$)
+NLoS_PATH_LOSS_EXPONENT = 2.8
+
+# The propagation environment specific parameter ($z_{1}$) for LoS/NLoS probability determination
+PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
+
+# The propagation environment specific parameter ($z_{2}$) for LoS/NLoS probability determination
+PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
+
+# The propagation environment dependent coefficient ($k_{1}$) for the LoS Rician link model's $K$-factor
+LoS_RICIAN_FACTOR_1 = 1.0
+
+# The propagation environment dependent coefficient ($k_{2}$) for the LoS Rician link model's $K$-factor
+LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
+
+# The additional attenuation constant for NLoS links ($\kappa$) | This factor affects the large-scale fading dynamics
+NLoS_ATTENUATION_CONSTANT = 0.2
+
+''' Algorithmic model '''
+
+# The convergence confidence level for optimization algorithms in this framework
+CONVERGENCE_CONFIDENCE = 10
+
+# The tolerance value for the bisection method to find the optimal value of $Z$ for rate adaptation
+BISECTION_METHOD_TOLERANCE = 1e-10
+
 """
-The system-wide resource for [Link Performance] evaluation
+Utilities
 """
 
 
-class LinkPerformanceEvaluator(object):
+class LinkPerformance(object):
     """
-    Link Performance Evaluator: Rate Adaptation via Bisection | Average Throughput and Average Delay Computation
+    Link performance
     """
 
-    def __init__(self, channel_bandwidth, reference_snr_at_1_meter, los_path_loss_exponent,
-                 nlos_path_loss_exponent, nlos_attenuation_constant, los_rician_factor_1, los_rician_factor_2,
-                 propagation_environment_parameter_1, propagation_environment_parameter_2,
-                 convergence_confidence, bisection_method_tolerance):
-        """
-        The initialization sequence
-
-        :param channel_bandwidth: The bandwidth of each orthogonal channel assigned to this application ($B$) in Hz
-        :param reference_snr_at_1_meter: The reference SNR level at a link distance of 1-meter
-        :param los_path_loss_exponent: The path-loss exponent for Line of Sight (LoS) links ($\alpha$)
-        :param nlos_path_loss_exponent: The path-loss exponent for Non-Line of Sight (NLoS) links ($\tilde{\alpha}$)
-        :param nlos_attenuation_constant: The additional NLoS attenuation factor ($\kappa$)
-        :param los_rician_factor_1: The propagation environment dependent coefficient ($k_{1}$) for the LoS Rician link
-        :param los_rician_factor_2: The propagation environment dependent coefficient ($k_{2}$) for the LoS Rician link
-        :param propagation_environment_parameter_1: The ($z_{1}$) parameter for LoS/NLoS probability determination
-        :param propagation_environment_parameter_2: The ($z_{2}$) parameter for LoS/NLoS probability determination
-        :param convergence_confidence: The convergence confidence level for optimization algorithms in this framework
-        :param bisection_method_tolerance: The tolerance value for the bisection method to find the optimal value of $Z$
-        """
+    def __init__(self, channel_bandwidth, reference_snr_at_1_meter,
+                 los_path_loss_exponent, nlos_path_loss_exponent, nlos_attenuation_constant,
+                 los_rician_factor_1, los_rician_factor_2, propagation_environment_parameter_1,
+                 propagation_environment_parameter_2, convergence_confidence, bisection_method_tolerance):
         self.channel_bandwidth = channel_bandwidth
-        self.reference_snr_at_1_meter = reference_snr_at_1_meter
-        self.los_path_loss_exponent = los_path_loss_exponent
-        self.nlos_path_loss_exponent = nlos_path_loss_exponent
-        self.nlos_attenuation_constant = nlos_attenuation_constant
         self.los_rician_factor_1 = los_rician_factor_1
         self.los_rician_factor_2 = los_rician_factor_2
+        self.convergence_confidence = convergence_confidence
+        self.los_path_loss_exponent = los_path_loss_exponent
+        self.nlos_path_loss_exponent = nlos_path_loss_exponent
+        self.reference_snr_at_1_meter = reference_snr_at_1_meter
+        self.nlos_attenuation_constant = nlos_attenuation_constant
+        self.bisection_method_tolerance = bisection_method_tolerance
         self.propagation_environment_parameter_1 = propagation_environment_parameter_1
         self.propagation_environment_parameter_2 = propagation_environment_parameter_2
-        self.convergence_confidence = convergence_confidence
-        self.bisection_method_tolerance = bisection_method_tolerance
+
         self.evaluation_output = namedtuple('link_performance_evaluation_output',
-                                            ['los_throughputs', 'nlos_throughputs', 'average_throughputs',
-                                             'average_delays', 'aggregated_average_delay'])
+                                            ['los_throughputs', 'nlos_throughputs',
+                                             'average_throughputs', 'average_delays', 'aggregated_average_delay'])
 
     def __enter__(self):
-        """
-        The enter method for the off-site context manager
-
-        :return: The instance itself
-        """
         return self
 
     # noinspection PyMethodMayBeStatic
     def __f_z(self, z):
-        """
-        Calculate the value of $f(Z)$, i.e., the Shannon-Hartley Channel Capacity in terms of the variable $Z$
-
-        :param z: The optimization variable in the re-formulated primal rate optimization problem
-
-        :return: The value of the function $f(Z)$ in the re-formulated primal rate optimization problem
-        """
         b = self.channel_bandwidth
         return b * np.log2(1 + (0.5 * (z ** 2)))
 
     # noinspection PyMethodMayBeStatic
     def __marcum_q(self, df, nc, x):
-        """
-        Calculate the value of the Marcum-Q function using the specified values of the number of degrees of freedom $k$,
-        the non-centrality factor $\lambda$, and the random variable rendition $x$
-
-        :param df: The number of degrees of freedom ($k$) for this non-central chi-squared distribution
-        :param nc: The non-centrality parameter ($\lambda$) for this non-central chi-squared distribution
-        :param x: The random variable rendition ($x$) for CDF evaluation of this non-central chi-squared distribution
-
-        :return: The value of the Marcum-Q function (1 - CDF[non-central chi-squared])
-        """
         return 1 - ncx2.cdf(x, df, nc)
 
     def __f(self, z, *args):
-        """
-        Calculate the value of the primal objective function in $Z$ based on the provided value of the optimization
-        variable ($Z$) and associated args (df, nc, y)
-
-        :param z: The value of the optimization variable to be plugged into the rate adaptation primal objective
-                  function, along with its associated args (df, nc, x)
-        :param args: The number of degrees of freedom (df), the non-centrality parameter (nc), and an incomplete random
-                     variable rendition (y) of the non-central chi-squared distribution used to evaluate the
-                     Marcum-Q function
-
-        :return: The value of the rate-adaptation primal objective function after plugging in the provided value of the
-                 optimization variable ($Z$) in a certain stage of the bisection method, along with its associated
-                 args (df, nc, y)
-        """
         df, nc, y = args
-        f_z, q_m = self.__f_z(z), self.__marcum_q(df, nc, (y * (z ** 2)))
+        f_z = self.__f_z(z)
+        q_m = self.__marcum_q(df, nc, (y * (z ** 2)))
         ln_f_z = np.log(f_z) if f_z != 0.0 else -np.inf
         ln_q_m = np.log(q_m) if q_m != 0.0 else -np.inf
+
         return -ln_f_z - ln_q_m
 
     # noinspection PyMethodMayBeStatic
     def __bisect(self, f, df, nc, y, low, high, tolerance):
-        """
-        A method to perform bisection-based optimization for rate-adaptation
-
-        :param f: The objective function being optimized
-        :param df: The number of degrees of freedom ($k$) for the non-central chi-squared distribution
-        :param nc: The non-centrality parameter ($\lambda$) for the non-central chi-squared distribution
-        :param y: An incomplete random variable rendition ($y$) for CDF evaluation of the non-central
-                  chi-squared distribution, i.e., $x{=}y Z^{2}$
-        :param low: The lower bound of the function's domain
-        :param high: The upper bound of the function's domain
-        :param tolerance: The tolerance level, which when achieved should terminate the optimization
-
-        :return: The minimizer of the provided objective function, i.e., argmin
-        """
         args = (df, nc, y)
         mid, converged, conf, conf_th = 0.0, False, 0, self.convergence_confidence
+
         while not converged or conf < conf_th:
             mid = (high + low) / 2
             if (f(low, *args) * f(high, *args)) > 0.0:
@@ -246,96 +216,56 @@ class LinkPerformanceEvaluator(object):
                 high = mid
             converged = abs(high - low) < tolerance
             conf += 1 if converged else -conf
+
         return mid
 
     def __z(self, gamma):
-        """
-        Calculate the value of the optimization variable $Z$
-
-        :param gamma: The data rate ($\mathbf{\gamma}$) of the Tx, employed in the calculation of $Z$
-
-        :return: The value of the optimization variable
-                 $Z{=}\sqrt{\frac{2 \beta P}{\sigma^{2} \Gamma} u(\mathbf{\gamma}, \beta)}$
-        """
         b = self.channel_bandwidth
         return np.sqrt(2 * ((2 ** (gamma / b)) - 1))
 
     def __u(self, gamma, d, los):
-        """
-        Calculate the value of the function $u(\mathbf{\gamma}, \beta)$
-
-        :param gamma: The data rate ($\mathbf{\gamma}$) of the Tx, employed to find $Z$ via $u(\mathbf{\gamma}, \beta)$
-        :param d: The distance between the Tx and Rx nodes for determining the large-scale channel variations term
-                  $\beta$ for use in the calculation of this function $u(\mathbf{\gamma}, \beta)$
-        :param los: This boolean member will be True if the calculation of this function is for LoS settings
-
-        :return: The value of the function $u(\mathbf{\gamma}, \beta)$
-        """
         b, gamma_ = self.channel_bandwidth, self.reference_snr_at_1_meter
         alpha, alpha_, kappa = self.los_path_loss_exponent, self.nlos_path_loss_exponent, self.nlos_attenuation_constant
-        return ((2 ** (gamma / b)) - 1) / (gamma_ * (lambda: kappa, lambda: 1)[los]() *
-                                           (d ** (lambda: -alpha_, lambda: -alpha)[los]()))
+
+        return ((2 ** (gamma / b)) - 1) / (gamma_ * 1 if los else kappa * (d ** -alpha if los else -alpha_))
 
     def __evaluate_los_throughput(self, d, phi, r_los):
-        """
-        Calculate the contribution of LoS transmissions to the total link throughput
-
-        :param d: The distance ($d$) between the Tx and the Rx for the uplink link under analysis
-        :param phi: The elevation angle ($\phi$) between the Tx and Rx nodes for the uplink link under analysis
-        :param r_los: The optimized LoS throughput member fed into the routine for reference-based concurrent updates
-        """
         k_1, k_2 = self.los_rician_factor_1, self.los_rician_factor_2
         k, alpha = k_1 * np.exp(k_2 * phi), self.los_path_loss_exponent
         b, gamma_ = self.channel_bandwidth, self.reference_snr_at_1_meter
         df, nc, y, t = 2, (2 * k), (k + 1) * (1 / (gamma_ * (d ** -alpha))), self.bisection_method_tolerance
-        z_star = self.__bisect(self.__f, df, nc, y, 0, self.__z(b * np.log2(1 + (rice.ppf(0.9999999999, k) ** 2) *
-                                                                            gamma_ * (d ** -alpha))), t)
+
+        z_star = self.__bisect(self.__f, df, nc, y, 0,
+                               self.__z(b * np.log2(1 + (rice.ppf(0.9999999999, k) ** 2) * gamma_ * (d ** -alpha))), t)
+
         tf.compat.v1.assign(r_los, self.__f_z(z_star), use_locking=True)
 
     def __evaluate_nlos_throughput(self, d, r_nlos):
-        """
-        Calculate the contribution of NLoS transmissions to the total link throughput
-
-        :param d: The distance ($d$) between the Tx and the Rx for the uplink link under analysis
-        :param r_nlos: The optimized NLoS throughput member fed into the routine for reference-based concurrent updates
-        """
         alpha_, t = self.nlos_path_loss_exponent, self.bisection_method_tolerance
         b, gamma_, kappa = self.channel_bandwidth, self.reference_snr_at_1_meter, self.nlos_attenuation_constant
+
         df, nc, y = 2, 0, 1 / (gamma_ * (kappa * (d ** -alpha_)))
-        z_star = self.__bisect(self.__f, df, nc, y, 0, self.__z(b * np.log2(1 + (rayleigh.ppf(0.9999999999) ** 2) *
-                                                                            gamma_ * kappa * (d ** -alpha_))), t)
+
+        z_star = self.__bisect(self.__f, df, nc, y, 0,
+                               self.__z(b * np.log2(1 + (
+                                       rayleigh.ppf(0.9999999999) ** 2) * gamma_ * kappa * (d ** -alpha_))), t)
+
         tf.compat.v1.assign(r_nlos, self.__f_z(z_star), use_locking=True)
 
     def __calculate_adapted_throughput(self, d, phi, r_los, r_nlos, num_workers):
-        """
-        Calculate the LoS and NLoS throughput members of the link under analysis
-
-        :param d: The distance ($d$) between the Tx and the Rx for the uplink link under analysis
-        :param phi: The elevation angle ($\phi$) between the Tx and the Rx for the uplink link under analysis
-        :param r_los: The optimized LoS throughput member fed into the routine for reference-based concurrent updates
-        :param r_nlos: The optimized NLoS throughput member fed into the routine for reference-based concurrent updates
-        :param num_workers: The number of concurrent executors to be employed during this calculation
-        """
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            executor.submit(self.__evaluate_los_throughput, d, phi, r_los)
             executor.submit(self.__evaluate_nlos_throughput, d, r_nlos)
+            executor.submit(self.__evaluate_los_throughput, d, phi, r_los)
 
     def __average_throughputs(self, d_s, phi_s, num_workers):
-        """
-        Calculate the average throughputs for the various Tx-Rx distance-varied/angle-varied links
-
-        :param d_s: The tensor constituting the distances between the Tx and the Rx (whose position is varied)
-        :param phi_s: The tensor constituting the angles between the Tx and the Rx (whose position is varied)
-        :param num_workers: The number of concurrent executors to be employed during this calculation
-
-        :return: The various throughput metrics for the various Tx-Rx distance-varied/angle-varied links
-        """
         r_los_s = tf.Variable(tf.zeros(shape=d_s.shape, dtype=tf.float64), dtype=tf.float64)
         r_nlos_s = tf.Variable(tf.zeros(shape=d_s.shape, dtype=tf.float64), dtype=tf.float64)
         z_1, z_2 = self.propagation_environment_parameter_1, self.propagation_environment_parameter_1
+
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
             for i, (d, phi) in enumerate(zip(d_s, phi_s)):
                 executor.submit(self.__calculate_adapted_throughput, d, phi, r_los_s[i], r_nlos_s[i], num_workers)
+
         phi_degrees = (180.0 / np.pi) * phi_s
         p_los = 1 / (1 + (z_1 * tf.exp(-z_2 * (phi_degrees - z_1))))
         p_nlos = tf.subtract(tf.ones(shape=p_los.shape, dtype=tf.float64), p_los)
@@ -343,346 +273,429 @@ class LinkPerformanceEvaluator(object):
 
     # noinspection PyMethodMayBeStatic
     def __average_delays(self, p_lens, r_bars):
-        """
-        Calculate the average delays for the various Tx-Rx distance-varied/angle-varied links (constituted in r_bar)
-        and the different payload lengths under analysis (constituted in p_lens)
-
-        :param p_lens: The different payload lengths under analysis in this evaluation ($L$s)
-        :param r_bars: The average throughputs for the various Tx-Rx distance-varied/angle-varied links
-
-        :return: A dictionary of the various delay metrics keyed w.r.t individual payload lengths
-        """
         delta_bars_p = {
             p_len: tf.divide(tf.constant(p_len, shape=r_bars.shape, dtype=tf.float64), r_bars) for p_len in p_lens
         }
+
         delta_bars_agg = {
             p_len: tf.divide(tf.reduce_sum(delta_bars), tf.constant(r_bars.shape[0], dtype=tf.float64)).numpy()
             for p_len, delta_bars in delta_bars_p.items()
         }
+
         return delta_bars_p, delta_bars_agg
 
     def evaluate(self, d_s, phi_s, p_lens, num_workers):
-        """
-        Evaluate link performance for a given GN-distribution (d_s and phi_s) and for different payload lengths
-
-        :param d_s: The tensor constituting the distances between the Tx and the Rx (whose position is varied)
-        :param phi_s: The tensor constituting the angles between the Tx and the Rx (whose position is varied)
-        :param p_lens: The different payload lengths under analysis in this evaluation ($L$s)
-        :param num_workers: The number of concurrent executors to be employed during this evaluation
-
-        :return: A populated instance of this evaluator's namedtuple output
-        """
         r_los_s, r_nlos_s, r_bars = self.__average_throughputs(d_s, phi_s, num_workers)
+
         delta_bars_p, delta_bars_agg = self.__average_delays(p_lens, r_bars)
-        return self.evaluation_output(los_throughputs=r_los_s, nlos_throughputs=r_nlos_s, average_throughputs=r_bars,
-                                      average_delays=delta_bars_p, aggregated_average_delay=delta_bars_agg)
+        return self.evaluation_output(aggregated_average_delay=delta_bars_agg,
+                                      los_throughputs=r_los_s, nlos_throughputs=r_nlos_s,
+                                      average_throughputs=r_bars, average_delays=delta_bars_p)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        """
-        The termination sequence
-
-        :param exc_type: The type of exception raised in the application that caused the code to exit (if any)
-        :param exc_val: The value or relevant data/information associated with the raised exit-exception (if any)
-        :param exc_tb: The traceback details of the raised exit-exception (if any)
-        """
-        print(f'[INFO] LinkPerformanceEvaluator Termination: Tearing things down - Exception Type = {exc_type} | '
-              f'Exception Value = {exc_val} | Traceback = {exc_tb}')
-
-
-"""
-The system-wide resource for [UAV Mobility & Power Consumption] evaluation
-"""
+        print(f'[INFO] LinkPerformance Termination: Tearing things down - '
+              f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}.')
 
 
 def evaluate_power_consumption(uav_flying_velocity):
     """
-    Determine the amount of power consumed by the UAV in Watts ($P_{\text{mob}}(v_{u}(t))$ W)
-
-    :param uav_flying_velocity: The instantaneous horizontal flying velocity of the UAV in m/s ($v_{u}(t))
-
-    :return: The UAV's power consumption when flying at the specified velocity (or hovering) according to the
-             provided motion and power consumption profiles
+    UAV mobility power consumption
     """
     v, u_tip, v_0 = uav_flying_velocity, ROTOR_BLADE_TIP_SPEED, MEAN_ROTOR_INDUCED_VELOCITY
     p_1, p_2, p_3 = POWER_PROFILE_CONSTANT_1, POWER_PROFILE_CONSTANT_2, POWER_PROFILE_CONSTANT_3
-    return (p_1 * (1 + ((3 * (v ** 2)) / (u_tip ** 2)))) + \
-           (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5) + \
-           (p_3 * (v ** 3))
+
+    return (p_1 * (1 + ((3 * (v ** 2)) / (u_tip ** 2)))) + (p_3 * (v ** 3)) + \
+        (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5)
 
 
-"""
-The system-wide resource for [Poisson Arrivals] emulation [Custom]
-"""
-
-# def simulate_poisson_arrivals(payload_length):
-#     """
-#     Simulate the Poisson arrival process of the active communication requests originating from the GNs in the cell
-#
-#     :param: The data payload length input which serves as a key into the ARRIVAL_RATE dictionary in order to select
-#             a payload-appropriate arrival rate
-#
-#     :return: A list of payload-size-specific GN active communication request arrival times
-#     """
-#     arrival_time, arrival_rate, arrival_times = 0.0, ARRIVAL_RATES[payload_length], []
-#     for request_number in range(NUMBER_OF_REQUESTS):
-#         arrival_time -= np.log(np.random.random_sample()) / arrival_rate
-#         arrival_times.append(arrival_time)
-#     return arrival_times
-
-
-"""
-The system-wide resources for [M/G/$N_{K}$] Queueing System evaluation [Custom]
-"""
-
-# sleep_seconds, number_of_requests, number_of_servers = 1e-9, NUMBER_OF_REQUESTS, NUMBER_OF_CHANNELS
-# queue = tf.Variable(tf.zeros(shape=(number_of_requests,), dtype=tf.int8), dtype=tf.int8)
-# wait_times = tf.Variable(tf.zeros(shape=(number_of_requests,), dtype=tf.float64), dtype=tf.float64)
-# lock, server_pool = Lock(), tf.Variable(tf.zeros(shape=(number_of_servers,), dtype=tf.int8), dtype=tf.int8)
-
-
-# def service_request(request_number, available_servers, service_times):
-#     """
-#     Service the GN request: Consume | Occupy a server | Sleep for the service period | Un-occupy the server
-#
-#     :param request_number: The GN request index for a global post-processing assignment of its service delay
-#     :param available_servers: A tensor of available servers at this point in the emulation
-#     :param service_times: The communication service delays for each GN request arriving at the serving node
-#
-#     :return: The server index (>0 | SERVED) or (-1 | NOT SERVED)
-#     """
-#     server = available_servers[0, 0].numpy() if tf.not_equal(tf.size(available_servers), 0) else -1
-#     if server != -1:
-#         tf.compat.v1.assign(queue[request_number], 1, use_locking=True)
-#         tf.compat.v1.assign(server_pool[server], 1, use_locking=True)
-#         time.sleep(service_times[request_number].numpy())
-#         tf.compat.v1.assign(server_pool[server], 0, use_locking=True)
-#     return server
-
-
-# def life_of_a_request(start_time, request_number, call_number, service_times):
-#     """
-#     A thread-safe, executor-handled routine that emulates the life of a GN request
-#
-#     :param start_time: The time at which the processing of this GN request started
-#     :param request_number: The GN request index for a global post-processing assignment of its service delay
-#     :param call_number: This function call's place in the overall process hierarchy of the GN request under analysis
-#     :param service_times: The communication service delays for each GN request arriving at the serving node
-#
-#     :return: A boolean indicating whether the request has been served
-#     """
-#     served = False
-#     while not served:
-#         with lock:
-#             available_servers = tf.where(tf.equal(server_pool, 0))
-#             queue_go_ahead = tf.equal(queue[request_number - 1], 1) \
-#                 if request_number > 0 and call_number == 0 else True
-#         if queue_go_ahead:
-#             if service_request(request_number, available_servers, service_times) == -1:
-#                 print(f'Call Number = {call_number} | Waiting {request_number}')
-#                 time.sleep(sleep_seconds)
-#                 served = life_of_a_request(start_time, request_number, call_number + 1, service_times)
-#             else:
-#                 print(f'Call Number = {call_number} | Served {request_number}!')
-#                 tf.compat.v1.assign(wait_times[request_number], (time.time_ns() - start_time) / 1e9, use_locking=True)
-#                 served = True
-#         else:
-#             time.sleep(sleep_seconds)
-#             continue
-#     return served
-
-
-"""
-The system-wide resources for [M/G/$N_{K}$] Queueing System evaluation [SimPy]
-"""
-
-
-def gn_request(env, num, chs, w_times, serv_times):
+def gn_request(env, num, chs, trxs, ch_w_times, trx_w_times, w_times, serv_times):
     """
-    Process the generated GN request
-
-    :param env: The SimPy environment wherein the queueing model is being evaluated
-    :param num: The GN request index
-    :param chs: The number of orthogonal BS channels (SimPy Resources) in this evaluation
-    :param w_times: The wait times collection for logging the request queue wait times
-    :param serv_times: The service-times collection housing the time taken to serve each GN request
+    Simpy queueing model: GN request
     """
     arrival_time = env.now
     k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
+
     with chs[k].request() as req:
         yield req
-        w_times.append(env.now - arrival_time)
-        yield env.timeout(serv_times[num])
+        ch_time = env.now
+        ch_w_times.append(ch_time - arrival_time)
+
+        x = np.argmin([max([0, len(_x.put_queue) + len(_x.users)]) for _x in trxs])
+
+        with trxs[x].request() as req_:
+            yield req_
+            trx_time = env.now
+            trx_w_times.append(trx_time - ch_time)
+            w_times.append(trx_time - arrival_time)
+            yield env.timeout(serv_times[num])
 
 
-def arrivals(env, chs, n_r, arr, w_times, serv_times):
+def arrivals(env, chs, trxs, n_r, arr, ch_w_times, trx_w_times, w_times, serv_times):
     """
-    Simulate Poisson arrivals and process the requests according to their service times
-
-    :param env: The SimPy environment wherein the queueing model is being evaluated
-    :param chs: The number of orthogonal BS channels (SimPy Resources) in this evaluation
-    :param n_r: The total number of GN requests being analyzed in this queueing model evaluation
-    :param arr: The arrival rate of GN requests for this Poisson simulation (payload-length specific rate)
-    :param w_times: The wait times collection for logging the request queue wait times
-    :param serv_times: The service-times collection housing the time taken to serve each GN request
+    Simpy queueing model: Poisson arrivals
     """
     for num in range(n_r):
-        env.process(gn_request(env, num, chs, w_times, serv_times))
+        env.process(gn_request(env, num, chs, trxs, ch_w_times,
+                               trx_w_times, w_times, serv_times))
         yield env.timeout(-np.log(np.random.random_sample()) / arr)
 
 
 """
-Reference Models
+Core operations
 """
 
 
-def no_uav_relay(payload_lengths, bs_coords, gn_coords, num_workers):
-    """
-    Evaluate the average delay performance of the cell when there is no UAV relay
-
-    :param payload_lengths: The data payload lengths for which our framework's operations have to be evaluated
-    :param bs_coords: The coordinates of the Base Station in the cell under analysis
-    :param gn_coords: The coordinates (distance- and angle-varied) of the Ground Nodes in the cell under analysis
-    :param num_workers: The number of concurrent executors to be employed during this evaluation
-
-    :return: The average communication delays for the GN-to-BS links (as the distances and angles are varied)
-    """
-    # GN-to-BS links
+def bs_only(payload_lengths, bs_coords, gn_coords, num_workers):
     gb_xy_distances = tf.norm(tf.subtract(gn_coords, bs_coords), axis=1)
     gb_heights = tf.constant(abs(BASE_STATION_HEIGHT - 0.0), shape=gb_xy_distances.shape, dtype=tf.float64)
+
     gb_distances = tf.sqrt(tf.add(tf.square(gb_xy_distances), tf.square(gb_heights)))
     gb_angles = tf.asin(tf.divide(gb_heights, gb_distances))
-    # Link Performance Evaluations
-    with LinkPerformanceEvaluator(CHANNEL_BANDWIDTH, REFERENCE_SNR_AT_1_METER, LoS_PATH_LOSS_EXPONENT,
-                                  NLoS_PATH_LOSS_EXPONENT, NLoS_ATTENUATION_CONSTANT,
-                                  LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2, PROPAGATION_ENVIRONMENT_PARAMETER_1,
-                                  PROPAGATION_ENVIRONMENT_PARAMETER_2, CONVERGENCE_CONFIDENCE,
-                                  BISECTION_METHOD_TOLERANCE) as link_perf_evaluator:
-        gb_delays = link_perf_evaluator.evaluate(gb_distances, gb_angles, payload_lengths, num_workers).average_delays
+
+    with LinkPerformance(CHANNEL_BANDWIDTH, REFERENCE_SNR_AT_1_METER,
+                         LoS_PATH_LOSS_EXPONENT, NLoS_PATH_LOSS_EXPONENT,
+                         NLoS_ATTENUATION_CONSTANT, LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2,
+                         PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2,
+                         CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
+        gb_delays = link_performance.evaluate(gb_distances, gb_angles, payload_lengths, num_workers).average_delays
+
     return gb_delays
 
 
+def hap_only(payload_lengths, hap_coords, gn_coords, num_workers):
+    gh_xy_distances = tf.norm(tf.subtract(gn_coords, hap_coords), axis=1)
+    gh_heights = tf.constant(abs(HAP_HEIGHT - 0.0), shape=gh_xy_distances.shape, dtype=tf.float64)
+
+    gh_distances = tf.sqrt(tf.add(tf.square(gh_xy_distances), tf.square(gh_heights)))
+    gh_angles = tf.asin(tf.divide(gh_heights, gh_distances))
+
+    with LinkPerformance(CHANNEL_BANDWIDTH, REFERENCE_SNR_AT_1_METER,
+                         LoS_PATH_LOSS_EXPONENT, NLoS_PATH_LOSS_EXPONENT,
+                         NLoS_ATTENUATION_CONSTANT, LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2,
+                         PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2,
+                         CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
+        gh_delays = link_performance.evaluate(gh_distances, gh_angles, payload_lengths, num_workers).average_delays
+
+    return gh_delays
+
+
+def leo_only(payload_lengths, leo_coords, gn_coords, num_workers):
+    gl_xy_distances = tf.norm(tf.subtract(gn_coords, leo_coords), axis=1)
+    gl_heights = tf.constant(abs(BASE_STATION_HEIGHT - 0.0), shape=gl_xy_distances.shape, dtype=tf.float64)
+
+    gl_distances = tf.sqrt(tf.add(tf.square(gl_xy_distances), tf.square(gl_heights)))
+    gl_angles = tf.asin(tf.divide(gl_heights, gl_distances))
+
+    with LinkPerformance(CHANNEL_BANDWIDTH, REFERENCE_SNR_AT_1_METER,
+                         LoS_PATH_LOSS_EXPONENT, NLoS_PATH_LOSS_EXPONENT,
+                         NLoS_ATTENUATION_CONSTANT, LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2,
+                         PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2,
+                         CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
+        gl_delays = link_performance.evaluate(gl_distances, gl_angles, payload_lengths, num_workers).average_delays
+
+    return gl_delays
+
+
 def single_uav_relay(payload_lengths, bs_coords, uav_coords, gn_coords, num_workers):
-    """
-    Evaluate the average delay performance of the cell when there is only one UAV serving as the BS-relay
-
-    :param payload_lengths: The data payload lengths for which our framework's operations have to be evaluated
-    :param bs_coords: The coordinates of the Base Station in the cell under analysis
-    :param uav_coords: The coordinates of the stationary UAV relay in the cell under analysis
-    :param gn_coords: The coordinates (distance- and angle-varied) of the Ground Nodes in the cell under analysis
-    :param num_workers: The number of concurrent executors to be employed during this evaluation
-
-    :return: The average communication delays for the [GN-to-UAV + UAV-to-BS] links
-             (as the GN distances and angles are varied)
-    """
     # GN-to-UAV links
+
     gu_xy_distances = tf.norm(tf.subtract(gn_coords, uav_coords), axis=1)
     gu_heights = tf.constant(abs(UAV_HEIGHT - 0.0), shape=gu_xy_distances.shape, dtype=tf.float64)
+
     gu_distances = tf.sqrt(tf.add(tf.square(gu_xy_distances), tf.square(gu_heights)))
     gu_angles = tf.asin(tf.divide(gu_heights, gu_distances))
+
     # UAV-to-BS links
+
     ub_xy_distances = tf.norm(tf.subtract(uav_coords, bs_coords), axis=1)
     ub_heights = tf.constant(abs(UAV_HEIGHT - BASE_STATION_HEIGHT), shape=ub_xy_distances.shape, dtype=tf.float64)
+
     ub_distances = tf.sqrt(tf.add(tf.square(ub_xy_distances), tf.square(ub_heights)))
     ub_angles = tf.asin(tf.divide(ub_heights, ub_distances))
-    # Link Performance Evaluations
-    with LinkPerformanceEvaluator(CHANNEL_BANDWIDTH, REFERENCE_SNR_AT_1_METER, LoS_PATH_LOSS_EXPONENT,
-                                  NLoS_PATH_LOSS_EXPONENT, NLoS_ATTENUATION_CONSTANT,
-                                  LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2, PROPAGATION_ENVIRONMENT_PARAMETER_1,
-                                  PROPAGATION_ENVIRONMENT_PARAMETER_2, CONVERGENCE_CONFIDENCE,
-                                  BISECTION_METHOD_TOLERANCE) as link_perf_evaluator:
-        gu_delays = link_perf_evaluator.evaluate(gu_distances, gu_angles, payload_lengths, num_workers).average_delays
-        ub_delays = link_perf_evaluator.evaluate(ub_distances, ub_angles, payload_lengths, num_workers).average_delays
+
+    with LinkPerformance(CHANNEL_BANDWIDTH, REFERENCE_SNR_AT_1_METER,
+                         LoS_PATH_LOSS_EXPONENT, NLoS_PATH_LOSS_EXPONENT,
+                         NLoS_ATTENUATION_CONSTANT, LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2,
+                         PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2,
+                         CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
+        gu_delays = link_performance.evaluate(gu_distances, gu_angles, payload_lengths, num_workers).average_delays
+        ub_delays = link_performance.evaluate(ub_distances, ub_angles, payload_lengths, num_workers).average_delays
+
     return {p_len: tf.add(gu_delays[p_len], ub_delays[p_len]) for p_len in payload_lengths}
 
 
 def multiple_uav_relays(payload_lengths, bs_coords, multiple_uav_coords, gn_coords, num_workers):
-    """
-    Evaluate the average delay performance of the cell when there are multiple UAVs serving as BS-relays
-
-    :param payload_lengths: The data payload lengths for which our framework's operations have to be evaluated
-    :param bs_coords: The coordinates of the Base Station in the cell under analysis
-    :param multiple_uav_coords: The coordinates of the multiple stationary UAV relays in the cell under analysis
-    :param gn_coords: The coordinates (distance- and angle-varied) of the Ground Nodes in the cell under analysis
-    :param num_workers: The number of concurrent executors to be employed during this evaluation
-
-    :return: The average communication delays for the [GN-to-UAV + UAV-to-BS] links w.r.t multiple UAV relays
-             (as the GN distances and angles are varied)
-    """
     # GN-to-UAV links
+
     gu_xy_distances = [tf.norm(tf.subtract(gn_coords, uav_coords), axis=1) for uav_coords in multiple_uav_coords]
     gu_heights = tf.constant(abs(UAV_HEIGHT - 0.0), shape=gu_xy_distances[0].shape, dtype=tf.float64)
-    gu_distances = tf.concat([tf.expand_dims(tf.sqrt(tf.add(tf.square(gu_xy_dists), tf.square(gu_heights))), axis=1)
-                              for gu_xy_dists in gu_xy_distances], axis=1)
-    gu_angles = tf.concat([tf.expand_dims(tf.asin(tf.divide(gu_heights, gu_distances[:, idx])), axis=1)
-                           for idx in range(len(gu_xy_distances))], axis=1)
+
+    gu_distances = tf.concat([tf.expand_dims(tf.sqrt(tf.add(
+        tf.square(gu_xy_dists), tf.square(gu_heights))), axis=1) for gu_xy_dists in gu_xy_distances], axis=1)
+
+    gu_angles = tf.concat([tf.expand_dims(tf.asin(tf.divide(
+        gu_heights, gu_distances[:, idx])), axis=1) for idx in range(len(gu_xy_distances))], axis=1)
+
     min_indices = tf.math.argmin(gu_distances, axis=1)
     gu_distances_min = tf.reduce_min(gu_distances, axis=1)
-    gu_angles_min = tf.constant([gu_angles[i, min_indices[i]].numpy() for i in range(min_indices.shape[0])],
-                                dtype=tf.float64)
+    gu_angles_min = tf.constant([gu_angles[i, min_indices[i]].numpy()
+                                 for i in range(min_indices.shape[0])], dtype=tf.float64)
+
     # UAV-to-BS links
-    ub_xy_distances = tf.constant([tf.norm(tf.subtract(multiple_uav_coords[i], bs_coords), axis=1)[0].numpy()
-                                   for i in min_indices.numpy()], dtype=tf.float64)
+
+    ub_xy_distances = tf.constant([tf.norm(tf.subtract(
+        multiple_uav_coords[i], bs_coords), axis=1)[0].numpy() for i in min_indices.numpy()], dtype=tf.float64)
     ub_heights = tf.constant(abs(UAV_HEIGHT - BASE_STATION_HEIGHT), shape=ub_xy_distances.shape, dtype=tf.float64)
+
     ub_distances_min = tf.sqrt(tf.add(tf.square(ub_xy_distances), tf.square(ub_heights)))
     ub_angles_min = tf.asin(tf.divide(ub_heights, ub_distances_min))
-    # Link Performance Evaluations
-    with LinkPerformanceEvaluator(CHANNEL_BANDWIDTH, REFERENCE_SNR_AT_1_METER, LoS_PATH_LOSS_EXPONENT,
-                                  NLoS_PATH_LOSS_EXPONENT, NLoS_ATTENUATION_CONSTANT,
-                                  LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2, PROPAGATION_ENVIRONMENT_PARAMETER_1,
-                                  PROPAGATION_ENVIRONMENT_PARAMETER_2, CONVERGENCE_CONFIDENCE,
-                                  BISECTION_METHOD_TOLERANCE) as link_perf_evaluator:
-        gu_delays = link_perf_evaluator.evaluate(gu_distances_min, gu_angles_min,
-                                                 payload_lengths, num_workers).average_delays
-        ub_delays = link_perf_evaluator.evaluate(ub_distances_min, ub_angles_min,
-                                                 payload_lengths, num_workers).average_delays
+
+    with LinkPerformance(CHANNEL_BANDWIDTH, REFERENCE_SNR_AT_1_METER,
+                         LoS_PATH_LOSS_EXPONENT, NLoS_PATH_LOSS_EXPONENT,
+                         NLoS_ATTENUATION_CONSTANT, LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2,
+                         PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2,
+                         CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
+        gu_delays = link_performance.evaluate(gu_distances_min, gu_angles_min,
+                                              payload_lengths, num_workers).average_delays
+        ub_delays = link_performance.evaluate(ub_distances_min, ub_angles_min,
+                                              payload_lengths, num_workers).average_delays
+
     return {p_len: tf.add(gu_delays[p_len], ub_delays[p_len]) for p_len in payload_lengths}
-    # return min_indices, {p_len: tf.add(gu_delays[p_len], ub_delays[p_len]) for p_len in payload_lengths}
 
 
-"""
-CONFIGURATIONS-II: Constant that were not defined at the top of this script can be configured in this routine
-"""
-
-
-def simulate_operations(num_workers):
-    """
-    Simulate the operations of our framework
-
-    :param num_workers: The number of concurrent executors to be employed during this evaluation
-    """
+def simulate_ops(num_workers):
     number_of_gn_requests, payload_lengths, gn_coords = NUMBER_OF_REQUESTS, [1e6, 10e6, 100e6], []
-    bs_coords = tf.tile(tf.expand_dims(tf.constant([0.0, 0.0], dtype=tf.float64), axis=0),
-                        multiples=[number_of_gn_requests, 1])
-
-    # arrival_times_dict = {p_len: simulate_poisson_arrivals(p_len) for p_len in payload_lengths}
-
-    # Uniformly-random GN position generation heuristic
 
     radii = np.random.uniform(0, CELL_RADIUS ** 2, number_of_gn_requests) ** 0.5
     angles = np.random.uniform(0, 2 * np.pi, number_of_gn_requests)
+
     gn_coords = tf.constant(list(zip(radii * np.cos(angles), radii * np.sin(angles))), dtype=tf.float64)
 
-    # Reference-1: No UAV Relay | M/G/1 Queueing System [SimPy Queueing Emulation]
-    comm_delays_dict = no_uav_relay(payload_lengths, bs_coords, gn_coords, num_workers)
+    ''' BS only '''
 
-    # Reference-3: No UAV Relay | $M/G/N_{K}$ Queueing System [SimPy Queueing Emulation]
-    number_of_servers = NUMBER_OF_CHANNELS
+    bs_coords = tf.tile(tf.expand_dims(tf.constant([0.0, 0.0],
+                                                   dtype=tf.float64), axis=0), multiples=[number_of_gn_requests, 1])
+
+    comm_delays_dict = bs_only(payload_lengths, bs_coords, gn_coords, num_workers)
+
     for payload_length, comm_delays_tensor in comm_delays_dict.items():
-        waiting_times, comm_delays, environment = [], comm_delays_tensor.numpy(), Environment()
-        environment.process(arrivals(environment, [Resource(environment) for _ in range(number_of_servers)],
-                                     number_of_gn_requests, ARRIVAL_RATES[payload_length], waiting_times, comm_delays))
+        waiting_times, ch_waiting_times, trx_waiting_times = [], [], []
+        comm_delays, environment = comm_delays_tensor.numpy(), Environment()
+
+        environment.process(arrivals(
+            environment, [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
+            [Resource(environment) for _ in range(NUMBER_OF_TRANSCEIVERS_BS)], number_of_gn_requests,
+            ARRIVAL_RATES[payload_length], ch_waiting_times, trx_waiting_times, waiting_times, comm_delays))
+
         environment.run()
-        print(f'[DEBUG] ReferenceModels simulate_operations: Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Comm Delay = {tf.reduce_mean(comm_delays)} seconds')
-        print(f'[DEBUG] ReferenceModels simulate_operations: Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Wait Delay = {np.mean(waiting_times)} seconds')
-        print(f'[INFO] ReferenceModels simulate_operations: No UAV Relay | M/G/{number_of_servers} | '
-              f'All requests are served by the BS | Payload Length = [{payload_length / 1e6}] Mb | '
-              f'UAV Power Consumption Constraint = [N/A] Watts | '
-              f'Average Service Delay = '
-              f'{tf.reduce_mean(tf.add(tf.constant(waiting_times, dtype=tf.float64), comm_delays))} seconds\n')
+
+        print(f'[DEBUG] ReferenceModels BS simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Comm Delay = {tf.reduce_mean(comm_delays)} seconds.\n')
+
+        print(f'[DEBUG] ReferenceModels BS simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
+
+        print(f'[DEBUG] ReferenceModels BS simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
+
+        print(f'[INFO] ReferenceModels BS simulate_ops: All requests served by the BS | '
+              f'No UAV Relay | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_BS} | '
+              f'Payload Length = [{payload_length / 1e6}] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | '
+              f'Average Delay = {tf.reduce_mean(tf.add(tf.constant(waiting_times, dtype=tf.float64), comm_delays))} s.')
+
+    ''' HAP only '''
+
+    hap_coords = tf.tile(tf.expand_dims(tf.constant([0.0, 0.0],
+                                                    dtype=tf.float64), axis=0), multiples=[number_of_gn_requests, 1])
+
+    comm_delays_dict = hap_only(payload_lengths, hap_coords, gn_coords, num_workers)
+
+    for payload_length, comm_delays_tensor in comm_delays_dict.items():
+        waiting_times, ch_waiting_times, trx_waiting_times = [], [], []
+        comm_delays, environment = comm_delays_tensor.numpy(), Environment()
+
+        environment.process(arrivals(
+            environment, [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
+            [Resource(environment) for _ in range(NUMBER_OF_TRANSCEIVERS_HAP)], number_of_gn_requests,
+            ARRIVAL_RATES[payload_length], ch_waiting_times, trx_waiting_times, waiting_times, comm_delays))
+
+        environment.run()
+
+        print(f'[DEBUG] ReferenceModels HAP simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Comm Delay = {tf.reduce_mean(comm_delays)} seconds.\n')
+
+        print(f'[DEBUG] ReferenceModels HAP simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
+
+        print(f'[DEBUG] ReferenceModels HAP simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
+
+        print(f'[INFO] ReferenceModels HAP simulate_ops: All requests served by the HAP | '
+              f'No UAV Relay | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_HAP} | '
+              f'Payload Length = [{payload_length / 1e6}] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | '
+              f'Average Delay = {tf.reduce_mean(tf.add(tf.constant(waiting_times, dtype=tf.float64), comm_delays))} s.')
+
+    ''' LEO only '''
+
+    leo_coords = tf.tile(tf.expand_dims(tf.constant([0.0, 0.0],
+                                                    dtype=tf.float64), axis=0), multiples=[number_of_gn_requests, 1])
+
+    comm_delays_dict = leo_only(payload_lengths, leo_coords, gn_coords, num_workers)
+
+    for payload_length, comm_delays_tensor in comm_delays_dict.items():
+        waiting_times, ch_waiting_times, trx_waiting_times = [], [], []
+        comm_delays, environment = comm_delays_tensor.numpy(), Environment()
+
+        environment.process(arrivals(
+            environment, [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
+            [Resource(environment) for _ in range(NUMBER_OF_TRANSCEIVERS_LEO)], number_of_gn_requests,
+            ARRIVAL_RATES[payload_length], ch_waiting_times, trx_waiting_times, waiting_times, comm_delays))
+
+        environment.run()
+
+        print(f'[DEBUG] ReferenceModels LEO simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Comm Delay = {tf.reduce_mean(comm_delays)} seconds.\n')
+
+        print(f'[DEBUG] ReferenceModels LEO simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
+
+        print(f'[DEBUG] ReferenceModels LEO simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
+
+        print(f'[INFO] ReferenceModels LEO simulate_ops: All requests served by the LEO | '
+              f'No UAV Relay | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_LEO} | '
+              f'Payload Length = [{payload_length / 1e6}] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | '
+              f'Average Delay = {tf.reduce_mean(tf.add(tf.constant(waiting_times, dtype=tf.float64), comm_delays))} s.')
+
+    ''' 1 UAV-relay '''
+
+    uav_coords = tf.tile(tf.expand_dims(tf.constant([0.0, 0.0],
+                                                    dtype=tf.float64), axis=0), multiples=[number_of_gn_requests, 1])
+
+    comm_delays_dict = single_uav_relay(payload_lengths, bs_coords, uav_coords, gn_coords, num_workers)
+
+    for payload_length, comm_delays_tensor in comm_delays_dict.items():
+        waiting_times, ch_waiting_times, trx_waiting_times = [], [], []
+        comm_delays, environment = comm_delays_tensor.numpy(), Environment()
+
+        environment.process(arrivals(
+            environment, [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
+            [Resource(environment) for _ in range(NUMBER_OF_TRANSCEIVERS_UAV)], number_of_gn_requests,
+            ARRIVAL_RATES[payload_length], ch_waiting_times, trx_waiting_times, waiting_times, comm_delays))
+
+        environment.run()
+
+        print(f'[DEBUG] ReferenceModels UAV simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Comm Delay = {tf.reduce_mean(comm_delays)} seconds.\n')
+
+        print(f'[DEBUG] ReferenceModels UAV simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
+
+        print(f'[DEBUG] ReferenceModels UAV simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
+
+        print(f'[INFO] ReferenceModels UAV simulate_ops: Decode-Forward with UAV-relay | '
+              f'Single UAV Relay | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_UAV} | '
+              f'Payload Length = [{payload_length / 1e6}] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | '
+              f'Average Delay = {tf.reduce_mean(tf.add(tf.constant(waiting_times, dtype=tf.float64), comm_delays))} s.')
+
+    ''' Multiple UAV-relays '''
+
+    # 2 UAV-relays
+    number_of_uavs = 2
+    uav_1 = tf.constant([500.0, 0.0], dtype=tf.float64)
+    uav_2 = tf.constant([-500.0, 0.0], dtype=tf.float64)
+    multiple_uav_coords = [tf.tile(tf.expand_dims(uav_1, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_2, axis=0), multiples=[number_of_gn_requests, 1])]
+
+    # 3 UAV-relays
+    # number_of_uavs = 3
+    # uav_1 = tf.constant([0.0, 500.0], dtype=tf.float64)
+    # uav_2 = tf.constant([500.0, -500.0], dtype=tf.float64)
+    # uav_3 = tf.constant([-500.0, -500.0], dtype=tf.float64)
+    # multiple_uav_coords = [tf.tile(tf.expand_dims(uav_1, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_2, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_3, axis=0), multiples=[number_of_gn_requests, 1])]
+
+    # 5 UAV-relays
+    # number_of_uavs = 5
+    # uav_1 = tf.constant([0.0, 500.0], dtype=tf.float64)
+    # uav_2 = tf.constant([500.0, 0.0], dtype=tf.float64)
+    # uav_3 = tf.constant([-500.0, 0.0], dtype=tf.float64)
+    # uav_4 = tf.constant([500.0, -500.0], dtype=tf.float64)
+    # uav_5 = tf.constant([-500.0, -500.0], dtype=tf.float64)
+    # multiple_uav_coords = [tf.tile(tf.expand_dims(uav_1, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_2, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_3, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_4, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_5, axis=0), multiples=[number_of_gn_requests, 1])]
+
+    # 10 UAV-relays
+    # number_of_uavs = 10
+    # uav_1 = tf.constant([0.0, 500.0], dtype=tf.float64)
+    # uav_2 = tf.constant([500.0, 0.0], dtype=tf.float64)
+    # uav_3 = tf.constant([0.0, -500.0], dtype=tf.float64)
+    # uav_4 = tf.constant([-500.0, 0.0], dtype=tf.float64)
+    # uav_5 = tf.constant([250.0, 250.0], dtype=tf.float64)
+    # uav_6 = tf.constant([500.0, -500.0], dtype=tf.float64)
+    # uav_7 = tf.constant([500.0, -250.0], dtype=tf.float64)
+    # uav_8 = tf.constant([-250.0, 250.0], dtype=tf.float64)
+    # uav_9 = tf.constant([-500.0, -500.0], dtype=tf.float64)
+    # uav_10 = tf.constant([-500.0, -250.0], dtype=tf.float64)
+    # multiple_uav_coords = [tf.tile(tf.expand_dims(uav_1, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_2, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_3, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_4, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_5, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_6, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_7, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_8, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_9, axis=0), multiples=[number_of_gn_requests, 1]),
+    #                        tf.tile(tf.expand_dims(uav_10, axis=0), multiples=[number_of_gn_requests, 1])]
+
+    comm_delays_dict = multiple_uav_relays(payload_lengths, bs_coords, multiple_uav_coords, gn_coords, num_workers)
+
+    for payload_length, comm_delays_tensor in comm_delays_dict.items():
+        waiting_times, ch_waiting_times, trx_waiting_times = [], [], []
+        comm_delays, environment = comm_delays_tensor.numpy(), Environment()
+
+        environment.process(arrivals(
+            environment, [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
+            [Resource(environment) for _ in range(NUMBER_OF_TRANSCEIVERS_UAV)], number_of_gn_requests,
+            ARRIVAL_RATES[payload_length], ch_waiting_times, trx_waiting_times, waiting_times, comm_delays))
+
+        environment.run()
+
+        print(f'[DEBUG] ReferenceModels mUAV simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Comm Delay = {tf.reduce_mean(comm_delays)} seconds.\n')
+
+        print(f'[DEBUG] ReferenceModels mUAV simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
+
+        print(f'[DEBUG] ReferenceModels mUAV simulate_ops: '
+              f'Payload Size = {payload_length / 1e6} Mb | '
+              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
+
+        print(f'[INFO] ReferenceModels mUAV simulate_ops: Decode-Forward with UAV-relays | '
+              f'{number_of_uavs} UAV-relays | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_UAV} | '
+              f'Payload Length = [{payload_length / 1e6}] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | '
+              f'Average Delay = {tf.reduce_mean(tf.add(tf.constant(waiting_times, dtype=tf.float64), comm_delays))} s.')
 
 
 # Run Trigger
 if __name__ == '__main__':
-    simulate_operations(num_workers=256)
+    simulate_ops(num_workers=1024)

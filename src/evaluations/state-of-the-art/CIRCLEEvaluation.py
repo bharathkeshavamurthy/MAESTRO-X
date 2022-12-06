@@ -115,7 +115,7 @@ def wait(u, x_u, z_u):
 
 def gn_request(env, r, xs, ell, chs, w, s, z, e, n_w):
     """
-    SimPy queueing model: GN request
+    Simpy queueing model: GN request
     """
     [tf.compat.v1.assign(xs[u], wait(u, xs[u], z[u]), validate_shape=True,
                          use_locking=True) if z[u] > 0.0 else None for u in range(num_uavs)]
@@ -137,7 +137,7 @@ def gn_request(env, r, xs, ell, chs, w, s, z, e, n_w):
 
 def arrivals(env, xs, chs, n_r, ell, arr, w, s, e, n_w):
     """
-    SimPy queueing model: Poisson arrivals
+    Simpy queueing model: Poisson arrivals
     """
     z = {u: 0.0 for u in range(num_uavs)}
     for r in range(n_r):
