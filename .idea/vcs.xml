@@ -2,5 +2,7 @@
 <project version="4">
   <component name="VcsDirectoryMappings">
     <mapping directory="$PROJECT_DIR$" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/evaluations/state-of-the-art/uav-ddpg" vcs="Git" />
+    <mapping directory="$PROJECT_DIR$/src/evaluations/state-of-the-art/uav_data_harvesting" vcs="Git" />
   </component>
 </project>

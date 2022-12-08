@@ -40,9 +40,9 @@ import traceback as tb
 import tensorflow as tf
 from threading import Lock
 from datetime import datetime
-from typing import List, Tuple
 from collections import namedtuple
 from scipy.optimize import minimize
+from typing import List, Dict, Tuple
 from simpy import Environment, Resource
 from dataclasses import field, dataclass
 from scipy.stats import rice, ncx2, rayleigh
@@ -105,7 +105,7 @@ class ControlFrame:
     node_type: str
     state_flag: str
     frame_type: str
-    transceivers: List
+    transceivers: Dict
     cost_estimate: Tuple
     trajectory: tf.Variable
     current_position: tf.Variable
@@ -146,7 +146,7 @@ class ServiceNode(object):
         self.users = []
         self.transient_users = []
         self.env_nodes = {_node: None for _node in serv_nodes}
-        self.transceivers = {_trx: None for _trx in self.num_trx}
+        self.transceivers = {_trx: None for _trx in range(self.num_trx)}
 
     def register(self):
         if not self.mw_registered:
@@ -203,10 +203,10 @@ class ServiceNode(object):
         elif v_r < 0.0:
             r_nxt, th_nxt = r_us[i - 1], th_u - th_c_star * d_00
         else:
-            min_peer = min(peers.values, lambda _o: abs(th_u - tf.math.atan(_o[1] / _o[0])))
+            min_peer = min(peers.values(), key=lambda _o: abs(th_u - tf.math.atan(_o[1] / _o[0])))
 
             th_peer = tf.math.atan(min_peer[1] / min_peer[0])
-            sgn = min([1, -1], lambda _sgn: abs((th_u + _sgn * th_c_star * d_00) - th_peer))
+            sgn = min([1, -1], key=lambda _sgn: abs((th_u + _sgn * th_c_star * d_00) - th_peer))
 
             r_nxt, th_nxt = r_us[i], th_u + th_u + sgn * th_c_star * d_00
 
