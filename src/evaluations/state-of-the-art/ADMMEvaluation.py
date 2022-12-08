@@ -376,15 +376,15 @@ def evaluate():
 
     print('[DEBUG] ADMMEvaluation evaluate: '
           f'Payload Size = {data_len / 1e6} Mb | '
-          f'Average Comm Delay = {np.mean(serv_times)} seconds.\n')
+          f'Average Comm Delay = {np.mean(serv_times)} seconds.')
 
     print('[DEBUG] ADMMEvaluation evaluate: '
           f'Payload Size = {data_len / 1e6} Mb | '
-          f'Average Wait Delay (Channel) = {np.mean(ch_w_times)} seconds.\n')
+          f'Average Wait Delay (Channel) = {np.mean(ch_w_times)} seconds.')
 
     print('[DEBUG] ADMMEvaluation evaluate: '
           f'Payload Size = {data_len / 1e6} Mb | '
-          f'Average Wait Delay (Transceiver) = {np.mean(trx_w_times)} seconds.\n')
+          f'Average Wait Delay (Transceiver) = {np.mean(trx_w_times)} seconds.')
 
     print('[DEBUG] ADMMEvaluation evaluate: '
           f'{m} UAV-relays | M/G/{n_c} and M/G/{n_xu} | '

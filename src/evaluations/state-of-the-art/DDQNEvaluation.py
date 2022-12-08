@@ -393,18 +393,18 @@ def evaluate(num_workers):
             totals[_k] = services[_k] + waits[_k]
 
         print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
-              f'Average Wait Time (Channel) = {np.mean([_ for _ in waits.values()])} seconds.\n')
+              f'Average Wait Time (Channel) = {np.mean([_ for _ in waits.values()])} seconds.')
 
         print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
-              f'Average Wait Time (Transceiver) = {np.mean([_ for _ in waits.values()])} seconds.\n')
+              f'Average Wait Time (Transceiver) = {np.mean([_ for _ in waits.values()])} seconds.')
 
         print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
-              f'Average Communication Service Time = {np.mean([_ for _ in services.values()])} seconds.\n')
+              f'Average Communication Service Time = {np.mean([_ for _ in services.values()])} seconds.')
 
         print('[INFO] DDQNEvaluation evaluate: '
               f'[{n_uavs}] UAV Relays | Payload Length = {p_len} Mb | '
               f'UAV Power Consumption Constraint = {evaluate_power_consumption() / 1e3} kW | '
-              f'Average Total Service Delay (Wait + Comm) = {np.mean([_ for _ in totals.values()])} seconds.')
+              f'Average Total Service Delay (Wait + Comm) = {np.mean([_ for _ in totals.values()])} seconds.\n')
 
 
 # Run Trigger

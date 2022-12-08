@@ -13,7 +13,7 @@ Copyright (c) 2022. All Rights Reserved.
 import os
 
 """
-Configurations-I: Logging setup for TensorFlow | XLA-JIT enhancement for the ASU-EXXACT GPU cluster 
+Configurations-I: Tensorflow logging | XLA-JIT enhancement
 """
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit ' \
@@ -198,7 +198,7 @@ PENALTIES_CAPSULE = namedtuple('penalties_capsule', ['t_p_1', 't_p_2', 'e_p_1', 
 # Random Trajectories Generation for HCSO Initialization
 class RandomTrajectoriesGeneration(object):
     """
-    Random Trajectories Generation
+    Random trajectories generation
     """
 
     def __init__(self, source, destination, radial_bounds, angular_bounds, swarm_size,
@@ -257,7 +257,7 @@ class RandomTrajectoriesGeneration(object):
 # Deterministic Trajectories Generation for HCSO Initialization
 class DeterministicTrajectoriesGeneration(object):
     """
-    Deterministic Trajectories Generation
+    Deterministic trajectories generation
     """
 
     def __init__(self, source, destination, radial_bounds,

@@ -361,20 +361,20 @@ def evaluate(n_w):
 
         print('[DEBUG] CIRCLEEvaluation evaluate: '
               f'Payload Size = {data_len / 1e6} Mb | '
-              f'Average Comm Delay = {np.mean(serv_times)} seconds.\n')
+              f'Average Comm Delay = {np.mean(serv_times)} seconds.')
 
         print('[DEBUG] CIRCLEEvaluation evaluate: '
               f'Payload Size = {data_len / 1e6} Mb | '
-              f'Average Wait Delay (Channel) = {np.mean(ch_wait_times)} seconds.\n')
+              f'Average Wait Delay (Channel) = {np.mean(ch_wait_times)} seconds.')
 
         print('[DEBUG] CIRCLEEvaluation evaluate: '
               f'Payload Size = {data_len / 1e6} Mb | '
-              f'Average Wait Delay (Transceiver) = {np.mean(trx_wait_times)} seconds.\n')
+              f'Average Wait Delay (Transceiver) = {np.mean(trx_wait_times)} seconds.')
 
         print('[DEBUG] CIRCLEEvaluation evaluate: '
               f'{m} UAV-relays | M/G/{n_c} and M/G/{n_xu} | '
               f'Payload Length = [{data_len / 1e6}] Mb | P_avg = {p_avg / 1e3} kW | '
-              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(wait_times, serv_times))} seconds.')
+              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(wait_times, serv_times))} seconds.\n')
 
 
 # Run Trigger

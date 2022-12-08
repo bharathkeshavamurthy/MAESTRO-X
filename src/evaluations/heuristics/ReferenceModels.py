@@ -528,15 +528,15 @@ def simulate_ops(num_workers):
 
         print('[DEBUG] ReferenceModels BS simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Comm Delay = {np.mean(comm_delays)} seconds.\n')
+              f'Average Comm Delay = {np.mean(comm_delays)} seconds.')
 
         print('[DEBUG] ReferenceModels BS simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
+              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.')
 
         print('[DEBUG] ReferenceModels BS simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
+              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.')
 
         print('[INFO] ReferenceModels BS simulate_ops: All requests served by the BS | '
               f'No UAV Relay | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_BS} | '
@@ -563,15 +563,15 @@ def simulate_ops(num_workers):
 
         print('[DEBUG] ReferenceModels HAP simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Comm Delay = {np.mean(comm_delays)} seconds.\n')
+              f'Average Comm Delay = {np.mean(comm_delays)} seconds.')
 
         print('[DEBUG] ReferenceModels HAP simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
+              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.')
 
         print('[DEBUG] ReferenceModels HAP simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
+              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.')
 
         print('[INFO] ReferenceModels HAP simulate_ops: All requests served by the HAP | '
               f'No UAV Relay | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_HAP} | '
@@ -598,15 +598,15 @@ def simulate_ops(num_workers):
 
         print('[DEBUG] ReferenceModels LEO simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Comm Delay = {np.mean(comm_delays)} seconds.\n')
+              f'Average Comm Delay = {np.mean(comm_delays)} seconds.')
 
         print('[DEBUG] ReferenceModels LEO simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
+              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.')
 
         print('[DEBUG] ReferenceModels LEO simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
+              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.')
 
         print('[INFO] ReferenceModels LEO simulate_ops: All requests served by the LEO | '
               f'No UAV Relay | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_LEO} | '
@@ -633,15 +633,15 @@ def simulate_ops(num_workers):
 
         print('[DEBUG] ReferenceModels UAV simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Comm Delay = {np.mean(comm_delays)} seconds.\n')
+              f'Average Comm Delay = {np.mean(comm_delays)} seconds.')
 
         print('[DEBUG] ReferenceModels UAV simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
+              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.')
 
         print('[DEBUG] ReferenceModels UAV simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
+              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.')
 
         print('[INFO] ReferenceModels UAV simulate_ops: Decode-Forward with UAV-relay | '
               f'Single UAV Relay | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_UAV} | '
@@ -737,20 +737,20 @@ def simulate_ops(num_workers):
 
         print('[DEBUG] ReferenceModels mUAV simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Comm Delay = {np.mean(comm_delays)} seconds.\n')
+              f'Average Comm Delay = {np.mean(comm_delays)} seconds.')
 
         print('[DEBUG] ReferenceModels mUAV simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
+              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.')
 
         print('[DEBUG] ReferenceModels mUAV simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
+              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.')
 
         print('[INFO] ReferenceModels mUAV simulate_ops: Decode-Forward with UAV-relays | '
               f'{number_of_uavs} UAV-relays | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_UAV} | '
               f'Payload Length = [{payload_length / 1e6}] Mb | Per-UAV Avg Power = {static_uav_pavg / 1e3} kW | '
-              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, comm_delays))} seconds.')
+              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, comm_delays))} seconds.\n')
 
 
 # Run Trigger
