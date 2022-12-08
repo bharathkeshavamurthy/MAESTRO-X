@@ -36,7 +36,7 @@ pi = np.pi
 np.random.seed(6)
 data_lens = [1e6, 10e6, 100e6]
 r_th_num, r_interp_num = 100, int(1e4)
-a, a_o, r_num, th_num, d_c = 1e3, 0.0, 25, 25, 1e-10
+a, a_o, r_num, th_num, d_c = 1e3, 50.0, 25, 25, 1e-10
 th_us = np.linspace(0, 315.0, th_num, dtype=np.float64)
 r_us = np.linspace(a_o, a - a_o, r_num, dtype=np.float64)
 arr_rates = {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.5555e-4}
