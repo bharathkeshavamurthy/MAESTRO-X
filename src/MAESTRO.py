@@ -833,7 +833,7 @@ class MAESTRO(object):
         # Lagrangian cost determination for scheduling (Direct BS or UAV relay?)
 
         d_gb = np.sqrt(np.add(np.square(h_b), np.square(np.linalg.norm(x_g))))
-        phi_gb = np.arcsin(tf.divide(h_b, d_gb))
+        phi_gb = np.arcsin(np.divide(h_b, d_gb))
 
         r_los_gb, r_nlos_gb = tf.Variable(0.0, dtype=tf.float64), tf.Variable(0.0, dtype=tf.float64)
 
