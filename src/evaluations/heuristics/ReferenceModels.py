@@ -47,7 +47,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 
 """
-CONFIGURATIONS-I: Simulation parameters
+CONFIGURATIONS-II: Simulation parameters
 """
 
 ''' Deployment model '''
@@ -308,9 +308,12 @@ def evaluate_power_consumption(uav_flying_velocity):
         (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5)
 
 
+static_uav_pavg = evaluate_power_consumption(0.0)
+
+
 def gn_request(env, num, chs, trxs, ch_w_times, trx_w_times, w_times, serv_times):
     """
-    Simpy queueing model: GN request
+    Simpy queueing model: Single node with multiple transceivers (BS/HAP/LEO/1-UAV) | GN request
     """
     arrival_time = env.now
     k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
@@ -332,11 +335,45 @@ def gn_request(env, num, chs, trxs, ch_w_times, trx_w_times, w_times, serv_times
 
 def arrivals(env, chs, trxs, n_r, arr, ch_w_times, trx_w_times, w_times, serv_times):
     """
-    Simpy queueing model: Poisson arrivals
+    Simpy queueing model: Single node with multiple transceivers (BS/HAP/LEO/1-UAV) | Poisson arrivals
     """
     for num in range(n_r):
         env.process(gn_request(env, num, chs, trxs, ch_w_times,
                                trx_w_times, w_times, serv_times))
+        yield env.timeout(-np.log(np.random.random_sample()) / arr)
+
+
+def gn_request_(env, num, chs, trxs, serv_idxs, ch_w_times, trx_w_times, w_times, serv_times):
+    """
+    Simpy queueing model: Multiple nodes with multiple transceivers (2, 3, 5, 10 UAVs) | GN request
+    """
+    arrival_time = env.now
+    k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
+
+    with chs[k].request() as req:
+        yield req
+        ch_time = env.now
+        ch_w_times.append(ch_time - arrival_time)
+
+        trxs_ = trxs[serv_idxs[num].numpy()]
+        x = np.argmin([max([0, len(_x.put_queue) + len(_x.users)]) for _x in trxs_])
+
+        with trxs_[x].request() as req_:
+            yield req_
+            trx_time = env.now
+            trx_w_times.append(trx_time - ch_time)
+            w_times.append(trx_time - arrival_time)
+            yield env.timeout(serv_times[num])
+
+
+def arrivals_(env, chs, trxs, n_r, arr, serv_idxs, ch_w_times, trx_w_times, w_times, serv_times):
+    """
+    Simpy queueing model: Multiple nodes with multiple transceivers (2, 3, 5, 10 UAVs) | Poisson arrivals
+    """
+    for num in range(n_r):
+        env.process(gn_request_(env, num, chs, trxs, serv_idxs,
+                                ch_w_times, trx_w_times, w_times, serv_times))
+
         yield env.timeout(-np.log(np.random.random_sample()) / arr)
 
 
@@ -460,7 +497,7 @@ def multiple_uav_relays(payload_lengths, bs_coords, multiple_uav_coords, gn_coor
         ub_delays = link_performance.evaluate(ub_distances_min, ub_angles_min,
                                               payload_lengths, num_workers).average_delays
 
-    return {p_len: tf.add(gu_delays[p_len], ub_delays[p_len]) for p_len in payload_lengths}
+    return {p_len: (min_indices, tf.add(gu_delays[p_len], ub_delays[p_len])) for p_len in payload_lengths}
 
 
 def simulate_ops(num_workers):
@@ -489,22 +526,22 @@ def simulate_ops(num_workers):
 
         environment.run()
 
-        print(f'[DEBUG] ReferenceModels BS simulate_ops: '
+        print('[DEBUG] ReferenceModels BS simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Comm Delay = {tf.reduce_mean(comm_delays)} seconds.\n')
+              f'Average Comm Delay = {np.mean(comm_delays)} seconds.\n')
 
-        print(f'[DEBUG] ReferenceModels BS simulate_ops: '
+        print('[DEBUG] ReferenceModels BS simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
               f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
 
-        print(f'[DEBUG] ReferenceModels BS simulate_ops: '
+        print('[DEBUG] ReferenceModels BS simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
               f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
 
-        print(f'[INFO] ReferenceModels BS simulate_ops: All requests served by the BS | '
+        print('[INFO] ReferenceModels BS simulate_ops: All requests served by the BS | '
               f'No UAV Relay | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_BS} | '
               f'Payload Length = [{payload_length / 1e6}] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | '
-              f'Average Delay = {tf.reduce_mean(tf.add(tf.constant(waiting_times, dtype=tf.float64), comm_delays))} s.')
+              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, comm_delays))} seconds.\n')
 
     ''' HAP only '''
 
@@ -524,22 +561,22 @@ def simulate_ops(num_workers):
 
         environment.run()
 
-        print(f'[DEBUG] ReferenceModels HAP simulate_ops: '
+        print('[DEBUG] ReferenceModels HAP simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Comm Delay = {tf.reduce_mean(comm_delays)} seconds.\n')
+              f'Average Comm Delay = {np.mean(comm_delays)} seconds.\n')
 
-        print(f'[DEBUG] ReferenceModels HAP simulate_ops: '
+        print('[DEBUG] ReferenceModels HAP simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
               f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
 
-        print(f'[DEBUG] ReferenceModels HAP simulate_ops: '
+        print('[DEBUG] ReferenceModels HAP simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
               f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
 
-        print(f'[INFO] ReferenceModels HAP simulate_ops: All requests served by the HAP | '
+        print('[INFO] ReferenceModels HAP simulate_ops: All requests served by the HAP | '
               f'No UAV Relay | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_HAP} | '
               f'Payload Length = [{payload_length / 1e6}] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | '
-              f'Average Delay = {tf.reduce_mean(tf.add(tf.constant(waiting_times, dtype=tf.float64), comm_delays))} s.')
+              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, comm_delays))} seconds.\n')
 
     ''' LEO only '''
 
@@ -559,22 +596,22 @@ def simulate_ops(num_workers):
 
         environment.run()
 
-        print(f'[DEBUG] ReferenceModels LEO simulate_ops: '
+        print('[DEBUG] ReferenceModels LEO simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Comm Delay = {tf.reduce_mean(comm_delays)} seconds.\n')
+              f'Average Comm Delay = {np.mean(comm_delays)} seconds.\n')
 
-        print(f'[DEBUG] ReferenceModels LEO simulate_ops: '
+        print('[DEBUG] ReferenceModels LEO simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
               f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
 
-        print(f'[DEBUG] ReferenceModels LEO simulate_ops: '
+        print('[DEBUG] ReferenceModels LEO simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
               f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
 
-        print(f'[INFO] ReferenceModels LEO simulate_ops: All requests served by the LEO | '
+        print('[INFO] ReferenceModels LEO simulate_ops: All requests served by the LEO | '
               f'No UAV Relay | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_LEO} | '
               f'Payload Length = [{payload_length / 1e6}] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | '
-              f'Average Delay = {tf.reduce_mean(tf.add(tf.constant(waiting_times, dtype=tf.float64), comm_delays))} s.')
+              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, comm_delays))} seconds.\n')
 
     ''' 1 UAV-relay '''
 
@@ -594,24 +631,28 @@ def simulate_ops(num_workers):
 
         environment.run()
 
-        print(f'[DEBUG] ReferenceModels UAV simulate_ops: '
+        print('[DEBUG] ReferenceModels UAV simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Comm Delay = {tf.reduce_mean(comm_delays)} seconds.\n')
+              f'Average Comm Delay = {np.mean(comm_delays)} seconds.\n')
 
-        print(f'[DEBUG] ReferenceModels UAV simulate_ops: '
+        print('[DEBUG] ReferenceModels UAV simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
               f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
 
-        print(f'[DEBUG] ReferenceModels UAV simulate_ops: '
+        print('[DEBUG] ReferenceModels UAV simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
               f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
 
-        print(f'[INFO] ReferenceModels UAV simulate_ops: Decode-Forward with UAV-relay | '
+        print('[INFO] ReferenceModels UAV simulate_ops: Decode-Forward with UAV-relay | '
               f'Single UAV Relay | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_UAV} | '
-              f'Payload Length = [{payload_length / 1e6}] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | '
-              f'Average Delay = {tf.reduce_mean(tf.add(tf.constant(waiting_times, dtype=tf.float64), comm_delays))} s.')
+              f'Payload Length = [{payload_length / 1e6}] Mb | Avg Power Constraint = {static_uav_pavg / 1e3} kW | '
+              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, comm_delays))} seconds.\n')
 
     ''' Multiple UAV-relays '''
+
+    """
+    Configurations-III: UAV deployments for the 'Multiple UAV-relays' case
+    """
 
     # 2 UAV-relays
     number_of_uavs = 2
@@ -620,80 +661,96 @@ def simulate_ops(num_workers):
     multiple_uav_coords = [tf.tile(tf.expand_dims(uav_1, axis=0), multiples=[number_of_gn_requests, 1]),
                            tf.tile(tf.expand_dims(uav_2, axis=0), multiples=[number_of_gn_requests, 1])]
 
+    """
+    
     # 3 UAV-relays
-    # number_of_uavs = 3
-    # uav_1 = tf.constant([0.0, 500.0], dtype=tf.float64)
-    # uav_2 = tf.constant([500.0, -500.0], dtype=tf.float64)
-    # uav_3 = tf.constant([-500.0, -500.0], dtype=tf.float64)
-    # multiple_uav_coords = [tf.tile(tf.expand_dims(uav_1, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_2, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_3, axis=0), multiples=[number_of_gn_requests, 1])]
+    number_of_uavs = 3
+    uav_1 = tf.constant([0.0, 500.0], dtype=tf.float64)
+    uav_2 = tf.constant([500.0, -500.0], dtype=tf.float64)
+    uav_3 = tf.constant([-500.0, -500.0], dtype=tf.float64)
+    multiple_uav_coords = [tf.tile(tf.expand_dims(uav_1, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_2, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_3, axis=0), multiples=[number_of_gn_requests, 1])]
+    
+    """
 
+    """
+    
     # 5 UAV-relays
-    # number_of_uavs = 5
-    # uav_1 = tf.constant([0.0, 500.0], dtype=tf.float64)
-    # uav_2 = tf.constant([500.0, 0.0], dtype=tf.float64)
-    # uav_3 = tf.constant([-500.0, 0.0], dtype=tf.float64)
-    # uav_4 = tf.constant([500.0, -500.0], dtype=tf.float64)
-    # uav_5 = tf.constant([-500.0, -500.0], dtype=tf.float64)
-    # multiple_uav_coords = [tf.tile(tf.expand_dims(uav_1, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_2, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_3, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_4, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_5, axis=0), multiples=[number_of_gn_requests, 1])]
+    number_of_uavs = 5
+    uav_1 = tf.constant([0.0, 500.0], dtype=tf.float64)
+    uav_2 = tf.constant([500.0, 0.0], dtype=tf.float64)
+    uav_3 = tf.constant([-500.0, 0.0], dtype=tf.float64)
+    uav_4 = tf.constant([500.0, -500.0], dtype=tf.float64)
+    uav_5 = tf.constant([-500.0, -500.0], dtype=tf.float64)
+    multiple_uav_coords = [tf.tile(tf.expand_dims(uav_1, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_2, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_3, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_4, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_5, axis=0), multiples=[number_of_gn_requests, 1])]
+                           
+    """
 
+    """
+    
     # 10 UAV-relays
-    # number_of_uavs = 10
-    # uav_1 = tf.constant([0.0, 500.0], dtype=tf.float64)
-    # uav_2 = tf.constant([500.0, 0.0], dtype=tf.float64)
-    # uav_3 = tf.constant([0.0, -500.0], dtype=tf.float64)
-    # uav_4 = tf.constant([-500.0, 0.0], dtype=tf.float64)
-    # uav_5 = tf.constant([250.0, 250.0], dtype=tf.float64)
-    # uav_6 = tf.constant([500.0, -500.0], dtype=tf.float64)
-    # uav_7 = tf.constant([500.0, -250.0], dtype=tf.float64)
-    # uav_8 = tf.constant([-250.0, 250.0], dtype=tf.float64)
-    # uav_9 = tf.constant([-500.0, -500.0], dtype=tf.float64)
-    # uav_10 = tf.constant([-500.0, -250.0], dtype=tf.float64)
-    # multiple_uav_coords = [tf.tile(tf.expand_dims(uav_1, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_2, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_3, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_4, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_5, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_6, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_7, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_8, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_9, axis=0), multiples=[number_of_gn_requests, 1]),
-    #                        tf.tile(tf.expand_dims(uav_10, axis=0), multiples=[number_of_gn_requests, 1])]
+    number_of_uavs = 10
+    uav_1 = tf.constant([0.0, 500.0], dtype=tf.float64)
+    uav_2 = tf.constant([500.0, 0.0], dtype=tf.float64)
+    uav_3 = tf.constant([0.0, -500.0], dtype=tf.float64)
+    uav_4 = tf.constant([-500.0, 0.0], dtype=tf.float64)
+    uav_5 = tf.constant([250.0, 250.0], dtype=tf.float64)
+    uav_6 = tf.constant([500.0, -500.0], dtype=tf.float64)
+    uav_7 = tf.constant([500.0, -250.0], dtype=tf.float64)
+    uav_8 = tf.constant([-250.0, 250.0], dtype=tf.float64)
+    uav_9 = tf.constant([-500.0, -500.0], dtype=tf.float64)
+    uav_10 = tf.constant([-500.0, -250.0], dtype=tf.float64)
+    multiple_uav_coords = [tf.tile(tf.expand_dims(uav_1, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_2, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_3, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_4, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_5, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_6, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_7, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_8, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_9, axis=0), multiples=[number_of_gn_requests, 1]),
+                           tf.tile(tf.expand_dims(uav_10, axis=0), multiples=[number_of_gn_requests, 1])]
+    
+    """
 
     comm_delays_dict = multiple_uav_relays(payload_lengths, bs_coords, multiple_uav_coords, gn_coords, num_workers)
 
-    for payload_length, comm_delays_tensor in comm_delays_dict.items():
+    for payload_length, comm_delays_tuple in comm_delays_dict.items():
+        comm_delays_argmins, comm_delays_tensor = comm_delays_tuple
         waiting_times, ch_waiting_times, trx_waiting_times = [], [], []
         comm_delays, environment = comm_delays_tensor.numpy(), Environment()
 
-        environment.process(arrivals(
-            environment, [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
-            [Resource(environment) for _ in range(NUMBER_OF_TRANSCEIVERS_UAV)], number_of_gn_requests,
-            ARRIVAL_RATES[payload_length], ch_waiting_times, trx_waiting_times, waiting_times, comm_delays))
+        environment.process(arrivals_(
+            environment,
+            [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
+            {_u: Resource(environment) for _ in range(NUMBER_OF_TRANSCEIVERS_UAV) for _u in range(number_of_uavs)},
+            number_of_gn_requests, ARRIVAL_RATES[payload_length], comm_delays_argmins,
+            ch_waiting_times, trx_waiting_times, waiting_times, comm_delays)
+        )
 
         environment.run()
 
-        print(f'[DEBUG] ReferenceModels mUAV simulate_ops: '
+        print('[DEBUG] ReferenceModels mUAV simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Comm Delay = {tf.reduce_mean(comm_delays)} seconds.\n')
+              f'Average Comm Delay = {np.mean(comm_delays)} seconds.\n')
 
-        print(f'[DEBUG] ReferenceModels mUAV simulate_ops: '
+        print('[DEBUG] ReferenceModels mUAV simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
               f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.\n')
 
-        print(f'[DEBUG] ReferenceModels mUAV simulate_ops: '
+        print('[DEBUG] ReferenceModels mUAV simulate_ops: '
               f'Payload Size = {payload_length / 1e6} Mb | '
               f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.\n')
 
-        print(f'[INFO] ReferenceModels mUAV simulate_ops: Decode-Forward with UAV-relays | '
+        print('[INFO] ReferenceModels mUAV simulate_ops: Decode-Forward with UAV-relays | '
               f'{number_of_uavs} UAV-relays | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_UAV} | '
-              f'Payload Length = [{payload_length / 1e6}] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | '
-              f'Average Delay = {tf.reduce_mean(tf.add(tf.constant(waiting_times, dtype=tf.float64), comm_delays))} s.')
+              f'Payload Length = [{payload_length / 1e6}] Mb | Per-UAV Avg Power = {static_uav_pavg / 1e3} kW | '
+              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, comm_delays))} seconds.')
 
 
 # Run Trigger

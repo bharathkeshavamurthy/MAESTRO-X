@@ -36,9 +36,9 @@ import cvxpy as cp
 import tensorflow as tf
 from numpy.linalg import norm
 from simpy import Environment, Resource
+from numpy.random import choice, uniform
 from scipy.stats import rice, ncx2, rayleigh
 from scipy.interpolate import UnivariateSpline
-from numpy.random import choice, uniform, random_sample
 
 """
 Miscellaneous
@@ -56,10 +56,9 @@ Configurations-II: Simulation parameters
 """
 np.random.seed(6)
 bw, n_c = 20e6, 4
-n_xu, n_xb = 3, 10
 pi, bw_ = np.pi, bw / n_c
-a, m, m_ip, n = 1e3, 14, 2, 30
 snr_0 = linear((5e6 * 40) / bw_)
+a, m, m_ip, n, n_xu = 1e3, 14, 2, 30, 3
 a_los, a_nlos, kappa, m_post = 2.0, 2.8, 0.2, m_ip * (m + 2)
 r_bounds, th_bounds, h_uavs, h_gns = (-a, a), (0, 2 * pi), 200.0, 0.0
 max_iters, eps_abs, eps_rel, warm_start, verbose = int(1e6), 1e-6, 1e-6, True, True
@@ -100,26 +99,38 @@ def mobility_pwr(v):
         (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5) + (p3 * (v ** 3))
 
 
-def gn_request(env, r, chs, w, s):
+def gn_request(env, num, chs, trxs, serv_idxs, ch_w_times, trx_w_times, w_times, serv_times):
     """
-    Simpy queueing model: GN request
+    Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | GN request
     """
-    arr = env.now
+    arrival_time = env.now
     k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
 
     with chs[k].request() as req:
         yield req
-        w.append(env.now - arr)
-        yield env.timeout(s[r])
+        ch_time = env.now
+        ch_w_times.append(ch_time - arrival_time)
+
+        trxs_ = trxs[serv_idxs[num]]
+        x = np.argmin([max([0, len(_x.put_queue) + len(_x.users)]) for _x in trxs_])
+
+        with trxs_[x].request() as req_:
+            yield req_
+            trx_time = env.now
+            trx_w_times.append(trx_time - ch_time)
+            w_times.append(trx_time - arrival_time)
+            yield env.timeout(serv_times[num])
 
 
-def arrivals(env, chs, n_r, arr, w, s):
+def arrivals(env, chs, trxs, n_r, arr, serv_idxs, ch_w_times, trx_w_times, w_times, serv_times):
     """
-    Simpy queueing model: Poisson arrivals
+    Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | Poisson arrivals
     """
-    for r in range(n_r):
-        env.process(gn_request(env, r, chs, w, s))
-        yield env.timeout(-np.log(random_sample()) / arr)
+    for num in range(n_r):
+        env.process(gn_request(env, num, chs, trxs, serv_idxs,
+                               ch_w_times, trx_w_times, w_times, serv_times))
+
+        yield env.timeout(-np.log(np.random.random_sample()) / arr)
 
 
 # noinspection PyMethodMayBeStatic
@@ -147,7 +158,7 @@ class RandomTrajectoriesGeneration(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb is not None:
-            print(f'[ERROR] RandomTrajectoriesGeneration Termination: Tearing things down - '
+            print('[ERROR] RandomTrajectoriesGeneration Termination: Tearing things down - '
                   f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
@@ -239,7 +250,7 @@ class LinkPerformance(object):
         tf.compat.v1.assign(r_s, tf.add(tf.multiply(p_los, r_los_s), tf.multiply(p_nlos, r_nlos_s)))
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        print(f'[INFO] LinkPerformance Termination: Tearing things down - '
+        print('[INFO] LinkPerformance Termination: Tearing things down - '
               f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}.')
 
 
@@ -371,25 +382,40 @@ def evaluate():
                          r[_u, -1, _k].numpy() for _u in range(n_u)])
                 if serv_status[_k] else 0.0 for _k in range(n_k)]), dtype=tf.float64)
 
-    s_times = [tp[_k] + np.mean([
+    serv_times = [tp[_k] + np.mean([
         tf.reduce_sum(tf.multiply(tau[_u, :, _k], t[_u, :])) for _u in range(n_u)]) for _k in range(n_k)]
 
-    w_times, env = [], Environment()
-    env.process(arrivals(env, [Resource(env) for _ in range(num_uavs)], n_k, arr_rates[data_len], w_times, s_times))
+    serv_idxs = [np.argmin([tf.reduce_sum(
+        tf.multiply(tau[_u, :, _k], t[_u, :])) for _u in range(n_u)]) for _k in range(n_k)]
+
+    ch_w_times, trx_w_times, w_times, env = [], [], [], Environment()
+
+    env.process(arrivals(env, [Resource(env) for _ in range(n_c)],
+                         {_u: [Resource(env) for _u in range(n_xu)] for _u in range(n_u)},
+                         n_k, arr_rates[data_len], serv_idxs, ch_w_times, trx_w_times, w_times, serv_times))
 
     env.run()
 
-    avg_s_time = np.mean(s_times, axis=0)
-    avg_w_time = np.mean(w_times, axis=0)
-    avg_t_time = np.mean(np.add(s_times, w_times), axis=0)
+    p_avg = np.mean([np.mean(np.divide(nrgs[_u], tf.reduce_sum(t[_u]).numpy())) for _u in range(n_u)]) + \
+            np.nan_to_num(tf.divide(tf.reduce_mean(tf.multiply(tp, mobility_pwr(0.0)), axis=0),
+                                    tf.reduce_sum(tp)).numpy())
 
-    avg_pwr = np.mean([np.mean(np.divide(nrgs[_u], tf.reduce_sum(t[_u]).numpy())) for _u in range(n_u)]) + \
-              np.nan_to_num(
-                  tf.divide(tf.reduce_mean(tf.multiply(tp, mobility_pwr(0.0)), axis=0), tf.reduce_sum(tp)).numpy())
+    print('[DEBUG] SCAEvaluation evaluate: '
+          f'Payload Size = {data_len / 1e6} Mb | '
+          f'Average Comm Delay = {np.mean(serv_times)} seconds.\n')
 
-    print(f'[INFO] SCAEvaluation evaluate: UAVs = {n_u} | GNs/Requests = {n_k} | '
-          f'Data Length = {data_len / 1e6} Mb | Average Power Consumption = {avg_pwr / 1e3} kW | '
-          f'Comm = {avg_s_time} seconds | Wait = {avg_w_time} seconds | Total = {avg_t_time} seconds.')
+    print('[DEBUG] SCAEvaluation evaluate: '
+          f'Payload Size = {data_len / 1e6} Mb | '
+          f'Average Wait Delay (Channel) = {np.mean(ch_w_times)} seconds.\n')
+
+    print('[DEBUG] SCAEvaluation evaluate: '
+          f'Payload Size = {data_len / 1e6} Mb | '
+          f'Average Wait Delay (Transceiver) = {np.mean(trx_w_times)} seconds.\n')
+
+    print('[DEBUG] SCAEvaluation evaluate: '
+          f'{n_u} UAV-relays | M/G/{n_c} and M/G/{n_xu} | '
+          f'Payload Length = [{data_len / 1e6}] Mb | P_avg = {p_avg / 1e3} kW | '
+          f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(w_times, serv_times))} seconds.')
 
 
 # Run Trigger

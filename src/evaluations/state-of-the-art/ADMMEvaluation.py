@@ -29,7 +29,7 @@ import cvxpy as cp
 from numpy.linalg import norm
 from simpy import Environment, Resource
 from multiprocessing import Pipe, Process
-from numpy.random import choice, uniform, random, random_sample
+from numpy.random import choice, uniform, random
 
 """
 Miscellaneous
@@ -47,8 +47,8 @@ Configurations: Simulation parameters
 """
 bw = 20e6
 pi = np.pi
+n_c, n_xu = 4, 3
 np.random.seed(6)
-n_c, n_xu, n_xb = 4, 3, 10
 num_uavs, bw_ = 1, bw / n_c
 snr_0 = linear((5e6 * 40) / bw_)
 utip, v0, p1, p2, p3 = 200.0, 7.2, 580.65, 790.6715, 0.0073
@@ -90,26 +90,38 @@ def mobility_power(v):
         (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5) + (p3 * (v ** 3))
 
 
-def gn_request(env, r, chs, w, s):
+def gn_request(env, num, chs, trxs, serv_idxs, ch_w_times, trx_w_times, w_times, serv_times):
     """
-    Simpy queueing model: GN request
+    Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | GN request
     """
-    a = env.now
+    arrival_time = env.now
     k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
 
     with chs[k].request() as req:
         yield req
-        w.append(env.now - a)
-        yield env.timeout(s[r])
+        ch_time = env.now
+        ch_w_times.append(ch_time - arrival_time)
+
+        trxs_ = trxs[serv_idxs[num]]
+        x = np.argmin([max([0, len(_x.put_queue) + len(_x.users)]) for _x in trxs_])
+
+        with trxs_[x].request() as req_:
+            yield req_
+            trx_time = env.now
+            trx_w_times.append(trx_time - ch_time)
+            w_times.append(trx_time - arrival_time)
+            yield env.timeout(serv_times[num])
 
 
-def arrivals(env, chs, n_r, arr, w, s):
+def arrivals(env, chs, trxs, n_r, arr, serv_idxs, ch_w_times, trx_w_times, w_times, serv_times):
     """
-    Simpy queueing model: Poisson arrivals
+    Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | Poisson arrivals
     """
-    for r in range(n_r):
-        env.process(gn_request(env, r, chs, w, s))
-        yield env.timeout(-np.log(random_sample()) / arr)
+    for num in range(n_r):
+        env.process(gn_request(env, num, chs, trxs, serv_idxs,
+                               ch_w_times, trx_w_times, w_times, serv_times))
+
+        yield env.timeout(-np.log(np.random.random_sample()) / arr)
 
 
 """
@@ -340,7 +352,7 @@ def admm(tau_t, zs_t, vs_t, r_u_s_t, r_c_t):
 def evaluate():
     z_uavs_opt, v_uavs_opt, r_relays_opt, r_c_opt = csca()
     n, m, rate, env = num_slots, num_uavs, arr_rates[data_len], Environment()
-    s_times, w_times = {_m: [] for _m in range(m)}, {_m: [] for _m in range(m)}
+    serv_idxs, ch_w_times, trx_w_times, w_times, serv_times = [], [], [], [], []
 
     for i in range(n):
         uav_mx = [np.argmin([norm(z_uavs_opt[_i][_m] -
@@ -353,19 +365,31 @@ def evaluate():
         rates = np.array([throughput(traj_pt, z_gns[i]) for traj_pt in trajs]) + np.array(r_s[i:i_min + 1] if i < i_min
                                                                                           else r_s[i_min:i + 1])
 
-        s_times[mx_uav].append(data_len / np.mean(rates, axis=0))
+        serv_idxs.append(mx_uav)
+        serv_times.append(data_len / np.mean(rates, axis=0))
 
-    for _m in range(m):
-        env.process(arrivals(env, [Resource(env)], len(s_times[_m]), rate, w_times[_m], s_times[_m]))
-        env.run()
+    env.process(arrivals(env, [Resource(env) for _ in range(n_c)],
+                         {_m: [Resource(env) for _ in range(n_xu)] for _m in range(m)},
+                         n, rate, serv_idxs, ch_w_times, trx_w_times, w_times, serv_times))
 
-    s_avg = np.mean([_t for val in s_times.values() for _t in val], axis=0)
-    w_avg = np.mean([_t for val in w_times.values() for _t in val], axis=0)
-    t_avg = np.mean([s_times[_m][_i] + w_times[_m][_i] for _m in range(m) for _i in range(len(s_times[_m]))], axis=0)
+    env.run()
 
-    print(f'[INFO] ADMMEvaluation evaluate: Length = {data_len / 1e6} Mb | '
-          f'Average Power Constraint = {p_avg / 1e3} kW | Average Service Time = {s_avg} seconds | '
-          f'Average In-Queue Waiting Time = {w_avg} seconds | Average Total Time = {t_avg} seconds.')
+    print('[DEBUG] ADMMEvaluation evaluate: '
+          f'Payload Size = {data_len / 1e6} Mb | '
+          f'Average Comm Delay = {np.mean(serv_times)} seconds.\n')
+
+    print('[DEBUG] ADMMEvaluation evaluate: '
+          f'Payload Size = {data_len / 1e6} Mb | '
+          f'Average Wait Delay (Channel) = {np.mean(ch_w_times)} seconds.\n')
+
+    print('[DEBUG] ADMMEvaluation evaluate: '
+          f'Payload Size = {data_len / 1e6} Mb | '
+          f'Average Wait Delay (Transceiver) = {np.mean(trx_w_times)} seconds.\n')
+
+    print('[DEBUG] ADMMEvaluation evaluate: '
+          f'{m} UAV-relays | M/G/{n_c} and M/G/{n_xu} | '
+          f'Payload Length = [{data_len / 1e6}] Mb | P_avg = {p_avg / 1e3} kW | '
+          f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(w_times, serv_times))} seconds.')
 
 
 # Run Trigger

@@ -132,7 +132,7 @@ class RandomTrajectoriesGeneration(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb is not None:
-            print(f'[ERROR] RandomTrajectoriesGeneration Termination: Tearing things down - '
+            print('[ERROR] RandomTrajectoriesGeneration Termination: Tearing things down - '
                   f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
@@ -161,7 +161,7 @@ class DeterministicTrajectoriesGeneration(object):
 
     def __exit__(self, exc_type, exc_val, exc_tb):
         if exc_tb is not None:
-            print(f'[ERROR] DeterministicTrajectoriesGeneration Termination: Tearing things down - '
+            print('[ERROR] DeterministicTrajectoriesGeneration Termination: Tearing things down - '
                   f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
@@ -233,7 +233,7 @@ class LinkPerformance(object):
             executor.submit(self.__los_throughput, d, phi, r_los)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        print(f'[INFO] LinkPerformance Termination: Tearing things down - '
+        print('[INFO] LinkPerformance Termination: Tearing things down - '
               f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}.')
 
 

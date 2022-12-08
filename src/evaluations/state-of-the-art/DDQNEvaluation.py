@@ -51,7 +51,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 
 """
-Configurations: Simulation parameters
+Configurations-II: Simulation parameters
 """
 
 # The NumPy random seed for reproducibility...
@@ -67,7 +67,7 @@ data_payload_sizes = [1e6, 10e6, 100e6]
 arrival_rates = {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}
 
 # The number of UAVs in model training and in this post-processing evaluations
-number_of_uavs = 1
+n_uavs = 1
 
 # The height of all the UAVs during model training and during this post-processing evaluation (in meters)
 uav_height = 200.0
@@ -100,6 +100,8 @@ uav_0_trajectory = {2: tf.constant([[24.0, 24.0], [24.0, 23.0], [23.0, 23.0], [2
                                     [10.0, 5.0], [11.0, 5.0], [12.0, 5.0], [13.0, 5.0], [14.0, 5.0],
                                     [15.0, 5.0]], dtype=tf.float64)}
 
+"""
+
 # The trajectory of UAV-1 to serve GNs 5 and 4 (approximated to the closest integer)
 uav_1_trajectory = {5: tf.constant([[24.0, 26.0], [24.0, 27.0], [24.0, 28.0], [24.0, 29.0], [23.0, 29.0],
                                     [23.0, 30.0], [24.0, 30.0], [23.0, 30.0], [22.0, 30.0], [23.0, 30.0],
@@ -125,37 +127,68 @@ uav_2_trajectory = {6: tf.constant([[25.0, 25.0], [26.0, 25.0], [27.0, 25.0], [2
                                     [44.0, 9.0]], dtype=tf.float64)}
 
 """
+
+# A combined dictionary mapping uav_indices to their GN-oriented trajectories
+uav_positions = {0: uav_0_trajectory}
+# uav_positions = {0: uav_0_trajectory, 1: uav_1_trajectory}
+# uav_positions = {0: uav_0_trajectory, 1: uav_1_trajectory, 2: uav_2_trajectory}
+
+"""
+Configurations-III: Channel parameters
+"""
+bw, n_c, n_xu = 20e6, 4, 3
+bw_, ra_conf, ra_tol = bw / n_c, 10, 1e-10
+s_0, al, anl, kp, k1, k2, z1, z2 = linear((5e6 * 40) / bw_), 2.0, 2.8, 0.2, 1.0, np.log(100) / 90.0, 9.61, 0.16
+
+"""
+Configurations-IV: UAV mobility power consumption model
+"""
+vel, u_tip, v_0, p_1, p_2, p_3 = 10.0, 200.0, 7.2, 580.65, 790.6715, 0.0073
+
+"""
 Utilities
 """
 
 
-def evaluate_power_consumption(v=10.0):
+def evaluate_power_consumption():
     """
     UAV mobility power consumption
     """
-    u_tip, v_0, p_1, p_2, p_3 = 200.0, 7.2, 580.65, 790.6715, 0.0073
-    return (p_1 * (1 + ((3 * (v ** 2)) / (u_tip ** 2)))) + (p_3 * (v ** 3)) + \
-        (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5)
+    return (p_1 * (1 + ((3 * (vel ** 2)) / (u_tip ** 2)))) + (p_3 * (vel ** 3)) + \
+        (p_2 * (((1 + ((vel ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((vel ** 2) / (2 * (v_0 ** 2)))) ** 0.5)
 
 
-def gn_request(env, num, chs, w_times, serv_times):
+def gn_request(env, num, chs, trxs, serv_idx, ch_w_times, trx_w_times, w_times, serv_times):
     """
-    Simpy queueing model: GN request
+    Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | GN request
     """
     arrival_time = env.now
     k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
+
     with chs[k].request() as req:
         yield req
-        w_times.append(env.now - arrival_time)
-        yield env.timeout(serv_times[num])
+        ch_time = env.now
+        ch_w_times.append(ch_time - arrival_time)
+
+        trxs_ = trxs[serv_idx]
+        x = np.argmin([max([0, len(_x.put_queue) + len(_x.users)]) for _x in trxs_])
+
+        with trxs_[x].request() as req_:
+            yield req_
+            trx_time = env.now
+            trx_w_times.append(trx_time - ch_time)
+            w_times.append(trx_time - arrival_time)
+            yield env.timeout(serv_times[num])
 
 
-def arrivals(env, chs, n_r, arr, w_times, serv_times):
+def arrivals(env, chs, trxs, n_r, arr, serv_idx, ch_w_times, trx_w_times, w_times, serv_times):
     """
-    Simpy queueing model: Poisson arrivals
+    Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | Poisson arrivals
     """
     for num in range(n_r):
-        env.process(gn_request(env, num, chs, w_times, serv_times))
+        env.process(gn_request(env, num, chs, trxs, serv_idx,
+                               ch_w_times, trx_w_times, w_times, serv_times))
+
         yield env.timeout(-np.log(np.random.random_sample()) / arr)
 
 
@@ -298,7 +331,7 @@ class LinkPerformance(object):
                                       average_delays=delta_bars_p, aggregated_average_delay=delta_bars_agg)
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        print(f'[INFO] LinkPerformance Termination: Tearing things down - '
+        print('[INFO] LinkPerformance Termination: Tearing things down - '
               f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {exc_tb}.')
 
 
@@ -307,11 +340,11 @@ Core operations
 """
 
 
-def multiple_uav_relays(payload_sizes, uav_trajs, gn_alts, gn_coords, num_workers):
-    gu_delays = {k: {_k: {} for _k in v.keys()} for k, v in uav_trajs.items()}
+def multiple_uav_relays(payload_sizes, gn_alts, gn_coords, num_workers):
+    gu_delays = {k: {_k: {} for _k in v.keys()} for k, v in uav_positions.items()}
 
     gu_xy_distances = {k: {_k: tf.norm(tf.subtract(gn_coords[_k] * scaling_factor, _v * scaling_factor), axis=1)
-                           for _k, _v in v.items()} for k, v in uav_trajs.items()}
+                           for _k, _v in v.items()} for k, v in uav_positions.items()}
 
     gu_heights = {k: {_k: tf.constant(abs(uav_height - gn_alts[_k]), shape=_v.shape, dtype=tf.float64)
                       for _k, _v in v.items()} for k, v in gu_xy_distances.items()}
@@ -322,15 +355,7 @@ def multiple_uav_relays(payload_sizes, uav_trajs, gn_alts, gn_coords, num_worker
     gu_angles = {k: {_k: tf.asin(tf.divide(gu_heights[k][_k], gu_distances[k][_k]))
                      for _k in v.keys()} for k, v in gu_xy_distances.items()}
 
-    """
-    Configurations-III: Channel parameters
-    """
-    bw, n_c = 20e6, 4
-    # n_xu, n_xb = 3, 10
-    bw_, ra_conf, ra_tol = bw / n_c, 10, 1e-10
-    s_0, al, anl, kp, k_1, k_2, z_1, z_2 = linear((5e6 * 40) / bw_), 2.0, 2.8, 0.2, 1.0, np.log(100) / 90.0, 9.61, 0.16
-
-    lperf = LinkPerformance(bw_, s_0, al, anl, kp, k_1, k_2, z_1, z_2, ra_conf, ra_tol)
+    lperf = LinkPerformance(bw_, s_0, al, anl, kp, k1, k2, z1, z2, ra_conf, ra_tol)
 
     for k, v in gu_delays.items():
         for _k, a_v in v.items():
@@ -340,39 +365,48 @@ def multiple_uav_relays(payload_sizes, uav_trajs, gn_alts, gn_coords, num_worker
     return gu_delays
 
 
-def evaluate_operations(num_workers):
-    uav_positions = {0: uav_0_trajectory, 1: uav_1_trajectory, 2: uav_2_trajectory}
-    delays = multiple_uav_relays(data_payload_sizes, uav_positions, gn_heights, gn_positions, num_workers)
+def evaluate(num_workers):
+    delays = multiple_uav_relays(data_payload_sizes, gn_heights, gn_positions, num_workers)
 
-    delays_mod = {p: {k: np.random.permutation(np.repeat([v[_k][p] for _k in v.keys()], 10000))
-                      for k, v in delays.items()} for p in data_payload_sizes}
+    delays_mod = {p: {k: np.random.permutation(
+        np.repeat([v[_k][p] for _k in v.keys()], int(1e4))) for k, v in delays.items()} for p in data_payload_sizes}
 
     for p, v in delays_mod.items():
         p_len = p / 1e6
-        services, waits, totals = {0: 0.0, 1: 0.0, 2: 0.0}, {0: 0.0, 1: 0.0, 2: 0.0}, {0: 0.0, 1: 0.0, 2: 0.0}
+        totals = {_u: 0.0 for _u in range(n_uavs)}
+        services, waits = {_u: 0.0 for _u in range(n_uavs)}, {_u: 0.0 for _u in range(n_uavs)}
+        ch_waits, trx_waits = {_u: 0.0 for _u in range(n_uavs)}, {_u: 0.0 for _u in range(n_uavs)}
 
         for _k, _v in v.items():
-            _waits, e = [], Environment()
-            e.process(arrivals(e, [Resource(e)], len(_v), arrival_rates[p], _waits, _v))
+            _waits, _ch_waits, _trx_waits, e = [], [], [], Environment()
+
+            e.process(arrivals(e, [Resource(e) for _ in range(n_c)],
+                               {_u: [Resource(e) for _ in range(n_xu)] for _u in range(n_uavs)},
+                               len(_v), arrival_rates[p], _k, _ch_waits, _trx_waits, _waits, _v))
 
             e.run()
 
             services[_k] = np.mean(_v)
             waits[_k] = np.mean(_waits)
+            ch_waits[_k] = np.mean(_ch_waits)
+            trx_waits[_k] = np.mean(_trx_waits)
             totals[_k] = services[_k] + waits[_k]
 
-        print(f'[DEBUG] DDQNEvaluation evaluate_operations: Payload Size = {p_len} Mb | '
+        print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
+              f'Average Wait Time (Channel) = {np.mean([_ for _ in waits.values()])} seconds.\n')
+
+        print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
+              f'Average Wait Time (Transceiver) = {np.mean([_ for _ in waits.values()])} seconds.\n')
+
+        print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
               f'Average Communication Service Time = {np.mean([_ for _ in services.values()])} seconds.\n')
 
-        print(f'[DEBUG] DDQNEvaluation evaluate_operations: Payload Size = {p_len} Mb | '
-              f'Average Queue Wait Time = {np.mean([_ for _ in waits.values()])} seconds.\n')
-
-        print(f'[INFO] DDQNEvaluation evaluate_operations: '
-              f'[{number_of_uavs}] UAV Relays | Payload Length = {p_len} Mb | '
+        print('[INFO] DDQNEvaluation evaluate: '
+              f'[{n_uavs}] UAV Relays | Payload Length = {p_len} Mb | '
               f'UAV Power Consumption Constraint = {evaluate_power_consumption() / 1e3} kW | '
-              f'Average Total Service Delay = {np.mean([_ for _ in totals.values()])} seconds.')
+              f'Average Total Service Delay (Wait + Comm) = {np.mean([_ for _ in totals.values()])} seconds.')
 
 
 # Run Trigger
 if __name__ == '__main__':
-    evaluate_operations(1024)
+    evaluate(1024)
