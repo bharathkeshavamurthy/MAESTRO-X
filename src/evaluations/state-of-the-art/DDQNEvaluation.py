@@ -51,42 +51,31 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 
 """
-Configurations-II: Simulation parameters
+Configurations-II: Deployment parameters | Extracted from policy on ASU ECEE EXXACT GPU cluster
 """
 
-# The NumPy random seed for reproducibility...
 np.random.seed(6)
+scaling_factor, data_payload_sizes = 10, [1e6, 10e6, 100e6]
+arrival_rates_r, n_uavs, uav_height, bs_height = {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}, 3, 200.0, 80.0
 
-# The scaling factor from "urban50" to "maestro-x"
-scaling_factor = 20
+'''
+TODO: Read these directly from the policy file as tensors instead of hard-coding them from the cluster node
+'''
 
-# The data payload size from each GN (in bits)
-data_payload_sizes = [1e6, 10e6, 100e6]
-
-# The request arrival rate from the GNs in this evaluation
-arrival_rates = {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}
-
-# The number of UAVs in model training and in this post-processing evaluations
-n_uavs = 1
-
-# The height of all the UAVs during model training and during this post-processing evaluation (in meters)
-uav_height = 200.0
-
-# The GN heights extracted from the "urban50" scenario run on 4xNVIDIA-A100 GPU cluster at ASU ECEE
-gn_heights = {0: tf.constant(0.0, dtype=tf.float64), 1: tf.constant(0.0, dtype=tf.float64),
+gn_heights = {-1: tf.constant(bs_height, dtype=tf.float64),
+              0: tf.constant(0.0, dtype=tf.float64), 1: tf.constant(0.0, dtype=tf.float64),
               2: tf.constant(0.0, dtype=tf.float64), 3: tf.constant(0.0, dtype=tf.float64),
               4: tf.constant(0.0, dtype=tf.float64), 5: tf.constant(0.0, dtype=tf.float64),
               6: tf.constant(0.0, dtype=tf.float64), 7: tf.constant(0.0, dtype=tf.float64),
               8: tf.constant(0.0, dtype=tf.float64), 9: tf.constant(0.0, dtype=tf.float64)}
 
-# The GN positions extracted from the "urban50" scenario run on 4xNVIDIA-A100 GPU cluster at ASU ECEE
-gn_positions = {0: tf.constant([0.0, 9.0], dtype=tf.float64), 1: tf.constant([4.0, 14.0], dtype=tf.float64),
+gn_positions = {-1: tf.constant([0.0, 0.0], dtype=tf.float64),
+                0: tf.constant([0.0, 9.0], dtype=tf.float64), 1: tf.constant([4.0, 14.0], dtype=tf.float64),
                 2: tf.constant([9.0, 15.0], dtype=tf.float64), 3: tf.constant([14.0, 2.0], dtype=tf.float64),
                 4: tf.constant([14.0, 50.0], dtype=tf.float64), 5: tf.constant([20.0, 43.0], dtype=tf.float64),
                 6: tf.constant([42.0, 27.0], dtype=tf.float64), 7: tf.constant([42.0, 24.0], dtype=tf.float64),
                 8: tf.constant([47.0, 8.0], dtype=tf.float64), 9: tf.constant([48.0, 22.0], dtype=tf.float64)}
 
-# The trajectory of UAV-0 to serve GNs 2, 1, 0, and 3 (approximated to the closest integer)
 uav_0_trajectory = {2: tf.constant([[24.0, 24.0], [24.0, 23.0], [23.0, 23.0], [23.0, 22.0], [22.0, 22.0], [21.0, 22.0],
                                     [20.0, 22.0], [19.0, 22.0], [19.0, 21.0], [18.0, 21.0], [17.0, 21.0], [17.0, 20.0],
                                     [16.0, 20.0], [15.0, 20.0], [15.0, 19.0], [14.0, 19.0], [14.0, 18.0], [13.0, 18.0],
@@ -98,11 +87,11 @@ uav_0_trajectory = {2: tf.constant([[24.0, 24.0], [24.0, 23.0], [23.0, 23.0], [2
                     3: tf.constant([[2.0, 9.0], [2.0, 8.0], [2.0, 7.0], [2.0, 6.0], [3.0, 6.0], [4.0, 6.0],
                                     [5.0, 6.0], [5.0, 5.0], [6.0, 5.0], [7.0, 5.0], [8.0, 5.0], [9.0, 5.0],
                                     [10.0, 5.0], [11.0, 5.0], [12.0, 5.0], [13.0, 5.0], [14.0, 5.0],
-                                    [15.0, 5.0]], dtype=tf.float64)}
+                                    [15.0, 5.0]], dtype=tf.float64),
+                    -1: tf.constant([[14.0, 5.0], [13.0, 5.0], [12.0, 5.0], [11.0, 5.0], [10.0, 5.0], [9.0, 5.0],
+                                     [8.0, 5.0], [7.0, 5.0], [6.0, 5.0], [5.0, 5.0], [4.0, 5.0], [3.0, 5.0],
+                                     [2.0, 5.0], [2.0, 4.0], [2.0, 3.0]], dtype=tf.float64)}
 
-"""
-
-# The trajectory of UAV-1 to serve GNs 5 and 4 (approximated to the closest integer)
 uav_1_trajectory = {5: tf.constant([[24.0, 26.0], [24.0, 27.0], [24.0, 28.0], [24.0, 29.0], [23.0, 29.0],
                                     [23.0, 30.0], [24.0, 30.0], [23.0, 30.0], [22.0, 30.0], [23.0, 30.0],
                                     [22.0, 30.0], [21.0, 30.0], [20.0, 30.0], [19.0, 30.0], [19.0, 31.0],
@@ -112,9 +101,13 @@ uav_1_trajectory = {5: tf.constant([[24.0, 26.0], [24.0, 27.0], [24.0, 28.0], [2
                     4: tf.constant([[16.0, 39.0], [15.0, 39.0], [14.0, 39.0], [13.0, 39.0], [12.0, 39.0],
                                     [12.0, 40.0], [12.0, 41.0], [12.0, 42.0], [12.0, 43.0], [12.0, 44.0],
                                     [12.0, 45.0], [12.0, 46.0], [12.0, 47.0], [12.0, 48.0], [11.0, 48.0],
-                                    [12.0, 48.0]], dtype=tf.float64)}
+                                    [12.0, 48.0]], dtype=tf.float64),
+                    -1: tf.constant([[11.0, 48.0], [10.0, 48.0], [9.0, 48.0], [8.0, 48.0], [7.0, 48.0],
+                                     [6.0, 48.0], [5.0, 48.0], [4.0, 48.0], [3.0, 48.0], [2.0, 48.0],
+                                     [2.0, 47.0], [2.0, 46.0], [2.0, 45.0], [2.0, 44.0], [2.0, 43.0],
+                                     [2.0, 42.0], [2.0, 41.0], [2.0, 40.0], [2.0, 39.0], [2.0, 38.0],
+                                     [2.0, 37.0], [2.0, 36.0]], dtype=tf.float64)}
 
-# The trajectory of UAV-2 to serve GNs 6, 7, 9, and 8 (approximated to the closest integer)
 uav_2_trajectory = {6: tf.constant([[25.0, 25.0], [26.0, 25.0], [27.0, 25.0], [28.0, 25.0], [29.0, 25.0],
                                     [30.0, 25.0], [31.0, 25.0], [32.0, 25.0], [35.0, 25.0], [40.0, 26.0],
                                     [40.0, 27.0]], dtype=tf.float64),
@@ -124,21 +117,44 @@ uav_2_trajectory = {6: tf.constant([[25.0, 25.0], [26.0, 25.0], [27.0, 25.0], [2
                                     [44.0, 24.0], [44.0, 23.0], [45.0, 23.0], [44.0, 22.0]], dtype=tf.float64),
                     8: tf.constant([[44.0, 21.0], [44.0, 20.0], [44.0, 19.0], [44.0, 18.0], [44.0, 17.0], [44.0, 16.0],
                                     [44.0, 15.0], [44.0, 14.0], [44.0, 13.0], [44.0, 12.0], [44.0, 11.0], [44.0, 10.0],
-                                    [44.0, 9.0]], dtype=tf.float64)}
+                                    [44.0, 9.0]], dtype=tf.float64),
+                    -1: tf.constant([[44.0, 8.0], [44.0, 7.0], [44.0, 6.0], [44.0, 5.0], [44.0, 4.0],
+                                     [44.0, 3.0], [44.0, 2.0], [43.0, 2.0], [42.0, 2.0], [41.0, 2.0],
+                                     [40.0, 2.0], [39.0, 2.0], [38.0, 2.0], [37.0, 2.0], [36.0, 2.0],
+                                     [35.0, 2.0], [34.0, 2.0], [33.0, 2.0], [32.0, 2.0], [31.0, 2.0],
+                                     [30.0, 2.0], [29.0, 2.0]], dtype=tf.float64)}
 
-"""
-
-# A combined dictionary mapping uav_indices to their GN-oriented trajectories
-uav_positions = {0: uav_0_trajectory}
+# uav_positions = {0: uav_0_trajectory}
 # uav_positions = {0: uav_0_trajectory, 1: uav_1_trajectory}
-# uav_positions = {0: uav_0_trajectory, 1: uav_1_trajectory, 2: uav_2_trajectory}
+uav_positions = {0: uav_0_trajectory, 1: uav_1_trajectory, 2: uav_2_trajectory}
 
 """
-Configurations-III: Channel parameters
+Configurations-III: Traffic generation model
 """
-bw, n_c, n_xu = 20e6, 4, 3
-bw_, ra_conf, ra_tol = bw / n_c, 10, 1e-10
-s_0, al, anl, kp, k1, k2, z1, z2 = linear((5e6 * 40) / bw_), 2.0, 2.8, 0.2, 1.0, np.log(100) / 90.0, 9.61, 0.16
+depl_env, rf, le_l, le_m, le_h = 'rural', n_uavs, 1, 10, 100
+arrival_rates_l = {_k: _v * rf for _k, _v in arrival_rates_r.items()}
+arrival_rates_m = {_k: _v * rf * le_m for _k, _v in arrival_rates_r.items()}
+arrival_rates_h = {_k: _v * rf * le_h for _k, _v in arrival_rates_r.items()}
+
+"""
+Configurations-IV: Channel model
+"""
+
+'''
+TODO: Change k1, k2, z1, and z2 according to the deployment environment
+TODO: Change n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
+'''
+
+if depl_env == 'rural':
+    n_c, k1, k2, z1, z2, arrival_rates = 2, 1.0, np.log(100) / 90.0, 9.61, 0.16, arrival_rates_l
+elif depl_env == 'suburban':
+    n_c, k1, k2, z1, z2, arrival_rates = 4, 1.0, np.log(100) / 90.0, 9.61, 0.16, arrival_rates_m
+else:
+    n_c, k1, k2, z1, z2, arrival_rates = 10, 1.0, np.log(100) / 90.0, 9.61, 0.16, arrival_rates_h
+
+bw, n_xu = 20e6, 1
+bw_, num_req = bw / n_c, 1000
+s_0, al, anl, kp, ra_conf, ra_tol = linear((5e6 * 40) / bw_), 2.0, 2.8, 0.2, 10, 1e-10
 
 """
 Configurations-IV: UAV mobility power consumption model
@@ -308,22 +324,21 @@ class LinkPerformance(object):
         return r_los_s, r_nlos_s, tf.add(tf.multiply(p_los, r_los_s), tf.multiply(p_nlos, r_nlos_s))
 
     # noinspection PyMethodMayBeStatic
-    def __average_delays(self, p_lens, r_bars):
+    def __average_delays(self, gn_id, num_gns, p_lens, r_bars):
         delta_bars_p = {
-            p_len: tf.divide(tf.constant(p_len, shape=r_bars.shape, dtype=tf.float64), r_bars) for p_len in p_lens
-        }
+            p_len: tf.divide(tf.constant(p_len * num_gns if gn_id == -1 else p_len,
+                                         shape=r_bars.shape, dtype=tf.float64), r_bars) for p_len in p_lens}
 
         delta_bars_agg = {
-            p_len: tf.divide(tf.reduce_sum(delta_bars), tf.constant(r_bars.shape[0], dtype=tf.float64)).numpy()
-            for p_len, delta_bars in delta_bars_p.items()
-        }
+            p_len: tf.reduce_sum(delta_bars).numpy()
+            for p_len, delta_bars in delta_bars_p.items()}
 
         return delta_bars_p, delta_bars_agg
 
-    def evaluate(self, d_s, phi_s, p_lens, num_workers):
+    def evaluate(self, gn_id, num_gns, d_s, phi_s, p_lens, num_workers):
         r_los_s, r_nlos_s, r_bars = self.__average_throughputs(d_s, phi_s, num_workers)
 
-        delta_bars_p, delta_bars_agg = self.__average_delays(p_lens, r_bars)
+        delta_bars_p, delta_bars_agg = self.__average_delays(gn_id, num_gns, p_lens, r_bars)
 
         return self.evaluation_output(los_throughputs=r_los_s,
                                       nlos_throughputs=r_nlos_s,
@@ -360,7 +375,8 @@ def multiple_uav_relays(payload_sizes, gn_alts, gn_coords, num_workers):
     for k, v in gu_delays.items():
         for _k, a_v in v.items():
             dists, angles = gu_distances[k][_k], gu_angles[k][_k]
-            gu_delays[k][_k] = lperf.evaluate(dists, angles, payload_sizes, num_workers).aggregated_average_delay
+            gu_delays[k][_k] = lperf.evaluate(_k, len(v.keys()) - 1, dists, angles,
+                                              payload_sizes, num_workers).aggregated_average_delay
 
     return gu_delays
 
@@ -369,7 +385,7 @@ def evaluate(num_workers):
     delays = multiple_uav_relays(data_payload_sizes, gn_heights, gn_positions, num_workers)
 
     delays_mod = {p: {k: np.random.permutation(
-        np.repeat([v[_k][p] for _k in v.keys()], int(1e4))) for k, v in delays.items()} for p in data_payload_sizes}
+        np.repeat([v[_k][p] for _k in v.keys()], num_req)) for k, v in delays.items()} for p in data_payload_sizes}
 
     for p, v in delays_mod.items():
         p_len = p / 1e6
@@ -393,10 +409,10 @@ def evaluate(num_workers):
             totals[_k] = services[_k] + waits[_k]
 
         print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
-              f'Average Wait Time (Channel) = {np.mean([_ for _ in waits.values()])} seconds.')
+              f'Average Wait Time (Channel) = {np.mean([_ for _ in ch_waits.values()])} seconds.')
 
         print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
-              f'Average Wait Time (Transceiver) = {np.mean([_ for _ in waits.values()])} seconds.')
+              f'Average Wait Time (Transceiver) = {np.mean([_ for _ in trx_waits.values()])} seconds.')
 
         print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
               f'Average Communication Service Time = {np.mean([_ for _ in services.values()])} seconds.')

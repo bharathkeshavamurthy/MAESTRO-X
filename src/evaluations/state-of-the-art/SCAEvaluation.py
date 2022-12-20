@@ -54,17 +54,39 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 """
 Configurations-II: Simulation parameters
 """
+
 np.random.seed(6)
-bw, n_c = 20e6, 4
-pi, bw_ = np.pi, bw / n_c
-snr_0 = linear((5e6 * 40) / bw_)
-a, m, m_ip, n, n_xu = 1e3, 14, 2, 30, 3
+pi, bw, n_xu = np.pi, 20e6, 1
+a, m, m_ip, n, num_uavs = 1e3, 30, 2, 1000, 3
 a_los, a_nlos, kappa, m_post = 2.0, 2.8, 0.2, m_ip * (m + 2)
+pc, ra_conf, ra_tol, cx_conf, cx_tol = 90.0, 10, 1e-10, 5, 1e-5
 r_bounds, th_bounds, h_uavs, h_gns = (-a, a), (0, 2 * pi), 200.0, 0.0
 max_iters, eps_abs, eps_rel, warm_start, verbose = int(1e6), 1e-6, 1e-6, True, True
-utip, v0, p1, p2, p3, v_min, v_max, v_num = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 10
-data_len, arr_rates, num_uavs, num_gns = [1e6, 10e6, 100e6][1], {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}, 1, n
-pc, k_1, k_2, z_1, z_2, ra_conf, ra_tol, cx_conf, cx_tol = 90.0, 1.0, np.log(100) / 90.0, 9.61, 0.16, 10, 1e-10, 3, 1e-3
+utip, v0, p1, p2, p3, v_min, v_max, v_num = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 25
+data_len, arr_rates_r, num_gns_r = [1e6, 10e6, 100e6][0], {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}, 150
+
+depl_env, rf, le_l, le_m, le_h = 'rural', num_uavs, 1, 10, 100
+num_gns_l, arr_rates_l = num_gns_r * rf * le_l, {_k: _v * rf for _k, _v in arr_rates_r.items()}
+num_gns_m, arr_rates_m = num_gns_r * rf * le_m, {_k: _v * rf * le_m for _k, _v in arr_rates_r.items()}
+num_gns_h, arr_rates_h = num_gns_r * rf * le_h, {_k: _v * rf * le_h for _k, _v in arr_rates_r.items()}
+
+'''
+TODO: Change k_1, k_2, z_1, and z_2 according to the deployment environment
+TODO: Change n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
+'''
+
+if depl_env == 'rural':
+    n_c, num_gns, arr_rates = 2, num_gns_l, arr_rates_l
+    k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
+elif depl_env == 'suburban':
+    n_c, num_gns, arr_rates = 4, num_gns_m, arr_rates_m
+    k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
+else:
+    n_c, num_gns, arr_rates = 10, num_gns_h, arr_rates_h
+    k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
+
+bw_ = bw / n_c
+snr_0 = linear((5e6 * 40) / bw_)
 
 """
 Configurations-III: Deployment parameters
@@ -99,11 +121,12 @@ def mobility_pwr(v):
         (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5) + (p3 * (v ** 3))
 
 
-def gn_request(env, num, chs, trxs, serv_idxs, ch_w_times, trx_w_times, w_times, serv_times):
+def gn_request(env, chs, trxs, serv_idxs, ch_w_times, trx_w_times, w_times, serv_times):
     """
     Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | GN request
     """
     arrival_time = env.now
+    r_ = np.random.randint(num_gns, size=1)[0]
     k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
 
     with chs[k].request() as req:
@@ -111,7 +134,7 @@ def gn_request(env, num, chs, trxs, serv_idxs, ch_w_times, trx_w_times, w_times,
         ch_time = env.now
         ch_w_times.append(ch_time - arrival_time)
 
-        trxs_ = trxs[serv_idxs[num]]
+        trxs_ = trxs[serv_idxs[r_]]
         x = np.argmin([max([0, len(_x.put_queue) + len(_x.users)]) for _x in trxs_])
 
         with trxs_[x].request() as req_:
@@ -119,7 +142,7 @@ def gn_request(env, num, chs, trxs, serv_idxs, ch_w_times, trx_w_times, w_times,
             trx_time = env.now
             trx_w_times.append(trx_time - ch_time)
             w_times.append(trx_time - arrival_time)
-            yield env.timeout(serv_times[num])
+            yield env.timeout(serv_times[r_])
 
 
 def arrivals(env, chs, trxs, n_r, arr, serv_idxs, ch_w_times, trx_w_times, w_times, serv_times):
@@ -127,7 +150,7 @@ def arrivals(env, chs, trxs, n_r, arr, serv_idxs, ch_w_times, trx_w_times, w_tim
     Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | Poisson arrivals
     """
     for num in range(n_r):
-        env.process(gn_request(env, num, chs, trxs, serv_idxs,
+        env.process(gn_request(env, chs, trxs, serv_idxs,
                                ch_w_times, trx_w_times, w_times, serv_times))
 
         yield env.timeout(-np.log(np.random.random_sample()) / arr)
@@ -392,7 +415,7 @@ def evaluate():
 
     env.process(arrivals(env, [Resource(env) for _ in range(n_c)],
                          {_u: [Resource(env) for _u in range(n_xu)] for _u in range(n_u)},
-                         n_k, arr_rates[data_len], serv_idxs, ch_w_times, trx_w_times, w_times, serv_times))
+                         n, arr_rates[data_len], serv_idxs, ch_w_times, trx_w_times, w_times, serv_times))
 
     env.run()
 
@@ -415,7 +438,7 @@ def evaluate():
     print('[DEBUG] SCAEvaluation evaluate: '
           f'{n_u} UAV-relays | M/G/{n_c} and M/G/{n_xu} | '
           f'Payload Length = [{data_len / 1e6}] Mb | P_avg = {p_avg / 1e3} kW | '
-          f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(w_times, serv_times))} seconds.\n')
+          f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(w_times, serv_times))} seconds.')
 
 
 # Run Trigger

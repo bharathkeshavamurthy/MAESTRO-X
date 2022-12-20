@@ -27,7 +27,7 @@ Configurations-I: Tensorflow logging | XLA-JIT enhancement
 """
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit ' \
-                        '/home/bkeshav1/workspace/repos/MAESTRO-X/src/evaluations/state-of-the-art/HCSOConvergence.py'
+                             '~/workspace/repos/MAESTRO-X/src/evaluations/state-of-the-art/HCSOConvergence.py'
 
 import time
 import json

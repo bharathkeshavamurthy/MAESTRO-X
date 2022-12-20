@@ -32,18 +32,33 @@ plotly.tools.set_credentials_file(username='bkeshav1', api_key='PUYaTVhV1Ok04I07
 """
 Configurations-II: Simulation parameters
 """
+
 pi = np.pi
 np.random.seed(6)
 data_lens = [1e6, 10e6, 100e6]
-r_th_num, r_interp_num = 100, int(1e4)
+r_th_num, r_interp_num = 100, 1000
 a, a_o, r_num, th_num, d_c = 1e3, 50.0, 25, 25, 1e-10
 th_us = np.linspace(0, 315.0, th_num, dtype=np.float64)
 r_us = np.linspace(a_o, a - a_o, r_num, dtype=np.float64)
-arr_rates = {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.5555e-4}
+arr_rates_r = {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
 utip, v0, p1, p2, p3, v_min, v_max = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0
-p_avgs, th_c_num = np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64), int(1e4)
+p_avgs, th_c_num = np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64), 1000
 
-''' TODO: Read this as a tensor from the policy log file instead of copy-pasting it here directly. '''
+depl_env, le_l, le_m, le_h = 'rural', 1, 10, 100
+arr_rates_l = {_k: _v for _k, _v in arr_rates_r.items()}
+arr_rates_m = {_k: _v * le_m for _k, _v in arr_rates_r.items()}
+arr_rates_h = {_k: _v * le_h for _k, _v in arr_rates_r.items()}
+
+if depl_env == 'rural':
+    arr_rates = arr_rates_l
+elif depl_env == 'suburban':
+    arr_rates = arr_rates_m
+else:
+    arr_rates = arr_rates_h
+
+''' 
+TODO: Read this as a tensor from the policy log file instead of hard-coding it from the cluster node
+'''
 data_lens_v_rs = {1e6: [7.5, 7.5, 7.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -27.5, -27.5, -27.5, -27.5,
                         -27.5, -27.5, -33.3, -33.3, -33.3, -33.3, -33.3, -33.3, -38.0, -38.0, -38.0, -38.0],
                   10e6: [7.5, 7.5, 7.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -27.5,

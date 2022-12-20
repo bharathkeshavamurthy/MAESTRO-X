@@ -1,14 +1,13 @@
 """
 1. This script evaluates the performance of the BS alone servicing GN requests.
-2. This script evaluates the performance of HAPs at a height of $H_{P}$ to serve GN requests.
-3. This script evaluates the performance of an LEO constellation at a height of $H_{L}$ to serve GN requests.
-4. This script evaluates the performance of static UAVs hovering at a fixed height $H_{U}$ to serve GN requests.
+2. This script evaluates the performance of a HAP at a height of $H_{P}$ to serve GN requests.
+3. This script evaluates the performance of static UAVs hovering at a fixed height $H_{U}$ to serve GN requests.
 
 The key metric analyzed in this is:
 
     "UAV Average Power Constraint (in Watts) v GN Active Communication Request Delay (in seconds)";
-    for [BS/HAP/LEO serving the GNs] and for [Number of UAVs ($N_{U}$) = 1, 2, 3, 5, 10];
-    for Payload Lengths ($L$) = 1.0 Mb, 10.0 Mb, and 100.0 Mb.
+        for [BS/HAP/LEO serving the GNs] and for [Number of UAVs ($N_{U}$) = 1, 2, 3, 5, 10];
+        for Payload Lengths ($L$) = 1.0 Mb, 10.0 Mb, and 100.0 Mb.
 
 Author: Bharath Keshavamurthy <bkeshava@purdue.edu | bkeshav1@asu.edu>
 Organization: School of Electrical & Computer Engineering, Purdue University, West Lafayette, IN.
@@ -47,32 +46,75 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 
 """
-CONFIGURATIONS-II: Simulation parameters
+Configurations-II: Simulation parameters
 """
 
 ''' Deployment model '''
 
+# The deployment under analysis
+DEPLOYMENT_TYPE = 'BS'  # 'BS' | 'HAP' | 'UAV'
+
 # The height of the BS from the ground ($H_{B}$) in meters
-BASE_STATION_HEIGHT = 80.0
+BS_HEIGHT = 80.0
+
+# The height of the HAP from the ground ($H_{U}$) in meters
+HAP_HEIGHT = 2e3
 
 # The height of the UAV from the ground ($H_{U}$) in meters
 UAV_HEIGHT = 200.0
 
-# The height of the HAP from the ground ($H_{U}$) in meters
-HAP_HEIGHT = 5e6
+# The number of static UAVs in the deployment under analysis
+NUMBER_OF_UAVS = 3
 
-# The height of the LEO from the ground ($H_{U}$) in meters
-LEO_HEIGHT = 250e6
+# The propagation environment under analysis
+DEPLOYMENT_ENVIRONMENT = 'rural'  # 'rural', 'urban', 'suburban'
 
 # The radius of the circular cell under evaluation ($a$) in meters
-CELL_RADIUS = 1000.0
+CELL_RADIUS = 1e3
 
 # The total number of GNs (implies communication requests) in the cell under analysis
-NUMBER_OF_REQUESTS = int(1e4)
+NUMBER_OF_REQUESTS = 1000
 
-# The number of communication requests originating in the cell per second ($\Lambda$) in requests/second
-# 1.0 Mb: One request every minute | 10.0 Mb: One request every 5 minutes | 100.0 Mb: One request every 30 minutes
-ARRIVAL_RATES = {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.5555e-4}
+''' Traffic generation model '''
+
+# The rate multiplication factor for a BS-deployment
+BS_RATE_FACTOR = 3  # red (1x <=> 1-UAV) | green (2x <=> 2-UAVs) | blue (3x <=> 3-UAVs)
+
+# The rate multiplication factor for a HAP-deployment
+HAP_RATE_FACTOR = 3  # red (1x <=> 1-UAV) | green (2x <=> 2-UAVs) | blue (3x <=> 3-UAVs)
+
+# The rate multiplication factor for a HAP-deployment
+UAV_RATE_FACTOR = NUMBER_OF_UAVS  # red (1-UAV <=> 1x) | green (2-UAV <=> 2x) | blue (3-UAVs <=> 3x)
+
+# The effective rate factor for the deployment under analysis
+if DEPLOYMENT_TYPE == 'BS':
+    RATE_FACTOR = BS_RATE_FACTOR
+elif DEPLOYMENT_TYPE == 'HAP':
+    RATE_FACTOR = HAP_RATE_FACTOR
+else:
+    RATE_FACTOR = UAV_RATE_FACTOR
+
+# Raw arrival rates which will be scaled w.r.t the rate factor and the load escalation factor
+RAW_ARRIVAL_RATES = {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
+
+# Low congestion ($\Lambda'$): 1.0 Mb: 5-reqs/1-min | 10.0 Mb: 1-req/1-min | 100.0 Mb: 1-req/6-min
+LOW_ARRIVAL_RATES = {_k: _v * RATE_FACTOR for _k, _v in RAW_ARRIVAL_RATES.items()}
+
+# High congestion ($\Lambda'$): Load escalation factor * Arrival rates for the "low congestion" regime
+LOAD_ESCALATION = 100
+HIGH_ARRIVAL_RATES = {_k: _v * RATE_FACTOR * LOAD_ESCALATION for _k, _v in RAW_ARRIVAL_RATES.items()}
+
+# Moderate congestion ($\Lambda'$): Load escalation factor * Arrival rates for the "moderate congestion" regime
+LOAD_ESCALATION = 10
+MODERATE_ARRIVAL_RATES = {_k: _v * RATE_FACTOR * LOAD_ESCALATION for _k, _v in RAW_ARRIVAL_RATES.items()}
+
+# The effective arrival rates for the deployment under analysis
+if DEPLOYMENT_ENVIRONMENT == 'rural':
+    ARRIVAL_RATES = LOW_ARRIVAL_RATES
+elif DEPLOYMENT_ENVIRONMENT == 'urban':
+    ARRIVAL_RATES = HIGH_ARRIVAL_RATES
+else:
+    ARRIVAL_RATES = MODERATE_ARRIVAL_RATES
 
 ''' UAV mobility power consumption model '''
 
@@ -99,26 +141,30 @@ THRUST_TO_WEIGHT_RATIO = 1.0
 
 ''' Channel model '''
 
-# The total FCC-allocated bandwidth for this application ($B$) in Hz
+# The total FCC-allocated bandwidth for this application ($W$) in Hz
 TOTAL_BANDWIDTH = 20e6
 
 # The number of orthogonal data channels ($N_{C}$) in this deployment
-NUMBER_OF_CHANNELS = 4
+# TODO: Change this number-of-data-channels parameter according to the deployment environment (Verizon LTE/LTE-A/5G)
+if DEPLOYMENT_ENVIRONMENT == 'rural':
+    NUMBER_OF_CHANNELS = 2  # Verizon rural: 2x 5-MHz LTE-A
+elif DEPLOYMENT_ENVIRONMENT == 'urban':
+    NUMBER_OF_CHANNELS = 10  # Verizon NYC: 10x 5-MHz LTE-A
+else:
+    NUMBER_OF_CHANNELS = 4  # Verizon suburban: 4x 5-MHz LTE-A
 
-# The bandwidth available per orthogonal data channel ($B_{k}$) in Hz
+# The bandwidth available per orthogonal data channel ($B$) in Hz
 CHANNEL_BANDWIDTH = TOTAL_BANDWIDTH / NUMBER_OF_CHANNELS
 
-# The number of transceivers per UAV in our deployment ($N_{X|U}$)
-NUMBER_OF_TRANSCEIVERS_UAV = 4
+# The number of transceivers per UAV in our deployment ($K_{U}$)
+# Note that this is modeled as "maximum number of simultaneous users" in our paper
+NUMBER_OF_TRANSCEIVERS_UAV = 3
 
-# The number of transceivers at the BS in our deployment ($N_{X|B}$)
+# The number of transceivers at the BS in our deployment ($K_{B}$)
 NUMBER_OF_TRANSCEIVERS_BS = 10
 
-# The number of transceivers at the HAP in our deployment ($N_{X|P}$)
+# The number of transceivers at the HAP in our deployment ($K_{P}$)
 NUMBER_OF_TRANSCEIVERS_HAP = 10
-
-# The number of transceivers at the LEO in our deployment ($N_{X|L}$)
-NUMBER_OF_TRANSCEIVERS_LEO = 10
 
 # The reference SNR level at a link distance of 1-meter ($\gamma_{GU}$, $\gamma_{GB}$, and $\gamma_{UB}$)
 REFERENCE_SNR_AT_1_METER = linear((5e6 * 40) / CHANNEL_BANDWIDTH)
@@ -130,16 +176,22 @@ LoS_PATH_LOSS_EXPONENT = 2.0
 NLoS_PATH_LOSS_EXPONENT = 2.8
 
 # The propagation environment specific parameter ($z_{1}$) for LoS/NLoS probability determination
-PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
-
-# The propagation environment specific parameter ($z_{2}$) for LoS/NLoS probability determination
-PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
-
-# The propagation environment dependent coefficient ($k_{1}$) for the LoS Rician link model's $K$-factor
-LoS_RICIAN_FACTOR_1 = 1.0
-
-# The propagation environment dependent coefficient ($k_{2}$) for the LoS Rician link model's $K$-factor
-LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
+# TODO: Change these propagation environment specific parameters according to the deployment environment
+if DEPLOYMENT_ENVIRONMENT == 'rural':
+    LoS_RICIAN_FACTOR_1 = 1.0
+    LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
+    PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
+    PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
+elif DEPLOYMENT_ENVIRONMENT == 'urban':
+    LoS_RICIAN_FACTOR_1 = 1.0
+    LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
+    PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
+    PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
+else:
+    LoS_RICIAN_FACTOR_1 = 1.0
+    LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
+    PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
+    PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
 
 # The additional attenuation constant for NLoS links ($\kappa$) | This factor affects the large-scale fading dynamics
 NLoS_ATTENUATION_CONSTANT = 0.2
@@ -384,7 +436,7 @@ Core operations
 
 def bs_only(payload_lengths, bs_coords, gn_coords, num_workers):
     gb_xy_distances = tf.norm(tf.subtract(gn_coords, bs_coords), axis=1)
-    gb_heights = tf.constant(abs(BASE_STATION_HEIGHT - 0.0), shape=gb_xy_distances.shape, dtype=tf.float64)
+    gb_heights = tf.constant(abs(BS_HEIGHT - 0.0), shape=gb_xy_distances.shape, dtype=tf.float64)
 
     gb_distances = tf.sqrt(tf.add(tf.square(gb_xy_distances), tf.square(gb_heights)))
     gb_angles = tf.asin(tf.divide(gb_heights, gb_distances))
@@ -416,23 +468,6 @@ def hap_only(payload_lengths, hap_coords, gn_coords, num_workers):
     return gh_delays
 
 
-def leo_only(payload_lengths, leo_coords, gn_coords, num_workers):
-    gl_xy_distances = tf.norm(tf.subtract(gn_coords, leo_coords), axis=1)
-    gl_heights = tf.constant(abs(BASE_STATION_HEIGHT - 0.0), shape=gl_xy_distances.shape, dtype=tf.float64)
-
-    gl_distances = tf.sqrt(tf.add(tf.square(gl_xy_distances), tf.square(gl_heights)))
-    gl_angles = tf.asin(tf.divide(gl_heights, gl_distances))
-
-    with LinkPerformance(CHANNEL_BANDWIDTH, REFERENCE_SNR_AT_1_METER,
-                         LoS_PATH_LOSS_EXPONENT, NLoS_PATH_LOSS_EXPONENT,
-                         NLoS_ATTENUATION_CONSTANT, LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2,
-                         PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2,
-                         CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
-        gl_delays = link_performance.evaluate(gl_distances, gl_angles, payload_lengths, num_workers).average_delays
-
-    return gl_delays
-
-
 def single_uav_relay(payload_lengths, bs_coords, uav_coords, gn_coords, num_workers):
     # GN-to-UAV links
 
@@ -445,7 +480,7 @@ def single_uav_relay(payload_lengths, bs_coords, uav_coords, gn_coords, num_work
     # UAV-to-BS links
 
     ub_xy_distances = tf.norm(tf.subtract(uav_coords, bs_coords), axis=1)
-    ub_heights = tf.constant(abs(UAV_HEIGHT - BASE_STATION_HEIGHT), shape=ub_xy_distances.shape, dtype=tf.float64)
+    ub_heights = tf.constant(abs(UAV_HEIGHT - BS_HEIGHT), shape=ub_xy_distances.shape, dtype=tf.float64)
 
     ub_distances = tf.sqrt(tf.add(tf.square(ub_xy_distances), tf.square(ub_heights)))
     ub_angles = tf.asin(tf.divide(ub_heights, ub_distances))
@@ -482,7 +517,7 @@ def multiple_uav_relays(payload_lengths, bs_coords, multiple_uav_coords, gn_coor
 
     ub_xy_distances = tf.constant([tf.norm(tf.subtract(
         multiple_uav_coords[i], bs_coords), axis=1)[0].numpy() for i in min_indices.numpy()], dtype=tf.float64)
-    ub_heights = tf.constant(abs(UAV_HEIGHT - BASE_STATION_HEIGHT), shape=ub_xy_distances.shape, dtype=tf.float64)
+    ub_heights = tf.constant(abs(UAV_HEIGHT - BS_HEIGHT), shape=ub_xy_distances.shape, dtype=tf.float64)
 
     ub_distances_min = tf.sqrt(tf.add(tf.square(ub_xy_distances), tf.square(ub_heights)))
     ub_angles_min = tf.asin(tf.divide(ub_heights, ub_distances_min))
@@ -578,41 +613,6 @@ def simulate_ops(num_workers):
               f'Payload Length = [{payload_length / 1e6}] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | '
               f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, comm_delays))} seconds.\n')
 
-    ''' LEO only '''
-
-    leo_coords = tf.tile(tf.expand_dims(tf.constant([0.0, 0.0],
-                                                    dtype=tf.float64), axis=0), multiples=[number_of_gn_requests, 1])
-
-    comm_delays_dict = leo_only(payload_lengths, leo_coords, gn_coords, num_workers)
-
-    for payload_length, comm_delays_tensor in comm_delays_dict.items():
-        waiting_times, ch_waiting_times, trx_waiting_times = [], [], []
-        comm_delays, environment = comm_delays_tensor.numpy(), Environment()
-
-        environment.process(arrivals(
-            environment, [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
-            [Resource(environment) for _ in range(NUMBER_OF_TRANSCEIVERS_LEO)], number_of_gn_requests,
-            ARRIVAL_RATES[payload_length], ch_waiting_times, trx_waiting_times, waiting_times, comm_delays))
-
-        environment.run()
-
-        print('[DEBUG] ReferenceModels LEO simulate_ops: '
-              f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Comm Delay = {np.mean(comm_delays)} seconds.')
-
-        print('[DEBUG] ReferenceModels LEO simulate_ops: '
-              f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Wait Delay (Channel) = {np.mean(ch_waiting_times)} seconds.')
-
-        print('[DEBUG] ReferenceModels LEO simulate_ops: '
-              f'Payload Size = {payload_length / 1e6} Mb | '
-              f'Average Wait Delay (Transceiver) = {np.mean(trx_waiting_times)} seconds.')
-
-        print('[INFO] ReferenceModels LEO simulate_ops: All requests served by the LEO | '
-              f'No UAV Relay | M/G/{NUMBER_OF_CHANNELS} and M/G/{NUMBER_OF_TRANSCEIVERS_LEO} | '
-              f'Payload Length = [{payload_length / 1e6}] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | '
-              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, comm_delays))} seconds.\n')
-
     ''' 1 UAV-relay '''
 
     uav_coords = tf.tile(tf.expand_dims(tf.constant([0.0, 0.0],
@@ -654,30 +654,27 @@ def simulate_ops(num_workers):
     Configurations-III: UAV deployments for the 'Multiple UAV-relays' case
     """
 
+    """
     # 2 UAV-relays
-    number_of_uavs = 2
+    number_of_uavs = NUMBER_OF_UAVS
     uav_1 = tf.constant([500.0, 0.0], dtype=tf.float64)
     uav_2 = tf.constant([-500.0, 0.0], dtype=tf.float64)
     multiple_uav_coords = [tf.tile(tf.expand_dims(uav_1, axis=0), multiples=[number_of_gn_requests, 1]),
                            tf.tile(tf.expand_dims(uav_2, axis=0), multiples=[number_of_gn_requests, 1])]
-
     """
-    
+
     # 3 UAV-relays
-    number_of_uavs = 3
+    number_of_uavs = NUMBER_OF_UAVS
     uav_1 = tf.constant([0.0, 500.0], dtype=tf.float64)
     uav_2 = tf.constant([500.0, -500.0], dtype=tf.float64)
     uav_3 = tf.constant([-500.0, -500.0], dtype=tf.float64)
     multiple_uav_coords = [tf.tile(tf.expand_dims(uav_1, axis=0), multiples=[number_of_gn_requests, 1]),
                            tf.tile(tf.expand_dims(uav_2, axis=0), multiples=[number_of_gn_requests, 1]),
                            tf.tile(tf.expand_dims(uav_3, axis=0), multiples=[number_of_gn_requests, 1])]
-    
-    """
 
     """
-    
     # 5 UAV-relays
-    number_of_uavs = 5
+    number_of_uavs = NUMBER_OF_UAVS
     uav_1 = tf.constant([0.0, 500.0], dtype=tf.float64)
     uav_2 = tf.constant([500.0, 0.0], dtype=tf.float64)
     uav_3 = tf.constant([-500.0, 0.0], dtype=tf.float64)
@@ -688,13 +685,11 @@ def simulate_ops(num_workers):
                            tf.tile(tf.expand_dims(uav_3, axis=0), multiples=[number_of_gn_requests, 1]),
                            tf.tile(tf.expand_dims(uav_4, axis=0), multiples=[number_of_gn_requests, 1]),
                            tf.tile(tf.expand_dims(uav_5, axis=0), multiples=[number_of_gn_requests, 1])]
-                           
     """
 
     """
-    
     # 10 UAV-relays
-    number_of_uavs = 10
+    number_of_uavs = NUMBER_OF_UAVS
     uav_1 = tf.constant([0.0, 500.0], dtype=tf.float64)
     uav_2 = tf.constant([500.0, 0.0], dtype=tf.float64)
     uav_3 = tf.constant([0.0, -500.0], dtype=tf.float64)
@@ -715,7 +710,6 @@ def simulate_ops(num_workers):
                            tf.tile(tf.expand_dims(uav_8, axis=0), multiples=[number_of_gn_requests, 1]),
                            tf.tile(tf.expand_dims(uav_9, axis=0), multiples=[number_of_gn_requests, 1]),
                            tf.tile(tf.expand_dims(uav_10, axis=0), multiples=[number_of_gn_requests, 1])]
-    
     """
 
     comm_delays_dict = multiple_uav_relays(payload_lengths, bs_coords, multiple_uav_coords, gn_coords, num_workers)

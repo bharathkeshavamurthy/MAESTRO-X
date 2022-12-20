@@ -45,19 +45,39 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 """
 Configurations: Simulation parameters
 """
+
 bw = 20e6
-pi = np.pi
-n_c, n_xu = 4, 3
 np.random.seed(6)
-num_uavs, bw_ = 1, bw / n_c
-snr_0 = linear((5e6 * 40) / bw_)
+pi, n_xu, num_uavs = np.pi, 3, 3
 utip, v0, p1, p2, p3 = 200.0, 7.2, 580.65, 790.6715, 0.0073
 rho, sigma_mul, sigma_alpha, tmax_csca, lmax_admm = 3.0, 0.1, 0.1, 10, 10
-radius, num_slots, num_gns, bs_ht, uav_ht, gn_ht = 1e3, 10, 30, 80.0, 200.0, 0.0
-v_min, v_max, arr_rates = 0.0, 55.0, {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}
+v_min, v_max, arr_rates_r = 0.0, 55.0, {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
 alpha_los, alpha_nlos, beta_los, beta_nlos, z1, z2 = 2.0, 2.8, 1e-3, 1e-4, 9.61, 0.16
-data_len, p_avg = [1e6, 10e6, 100e6][0], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
+radius, num_slots, num_gns_r, bs_ht, uav_ht, gn_ht = 1e3, 1000, 150, 80.0, 200.0, 0.0
+data_len, p_avg = [1e6, 10e6, 100e6][0], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[0]
 max_iters, eps_abs, eps_rel, warm_start, verbose, csca_conf, csca_tol = int(1e6), 1e-6, 1e-6, True, True, 5, 1e-5
+
+depl_env, rf, le_l, le_m, le_h = 'rural', num_uavs, 1, 10, 100
+num_gns_l, arr_rates_l = num_gns_r * rf * le_l, {_k: _v * rf for _k, _v in arr_rates_r.items()}
+num_gns_m, arr_rates_m = num_gns_r * rf * le_m, {_k: _v * rf * le_m for _k, _v in arr_rates_r.items()}
+num_gns_h, arr_rates_h = num_gns_r * rf * le_h, {_k: _v * rf * le_h for _k, _v in arr_rates_r.items()}
+
+'''
+TODO: Change z1 and z2 according to the deployment environment
+TODO: Change n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
+TODO: Change n_xu = n_c, if we decide to remove the restriction on max number of simultaneous users (OFDMA)
+'''
+
+if depl_env == 'rural':
+    n_c, num_gns, z1, z2, arr_rates = 2, num_gns_l, 9.61, 0.16, arr_rates_l
+elif depl_env == 'suburban':
+    n_c, num_gns, z1, z2, arr_rates = 4, num_gns_m, 9.61, 0.16, arr_rates_m
+else:
+    n_c, num_gns, z1, z2, arr_rates = 10, num_gns_h, 9.61, 0.16, arr_rates_h
+
+# n_xu = n_c
+bw_ = bw / n_c
+snr_0 = linear((5e6 * 40) / bw_)
 
 """
 Deployments (BS, GNs, and UAVs)
@@ -387,7 +407,7 @@ def evaluate():
           f'Average Wait Delay (Transceiver) = {np.mean(trx_w_times)} seconds.')
 
     print('[DEBUG] ADMMEvaluation evaluate: '
-          f'{m} UAV-relays | M/G/{n_c} and M/G/{n_xu} | '
+          f'{num_uavs} UAV-relays | M/G/{n_c} and M/G/{n_xu} | '
           f'Payload Length = [{data_len / 1e6}] Mb | P_avg = {p_avg / 1e3} kW | '
           f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(w_times, serv_times))} seconds.')
 

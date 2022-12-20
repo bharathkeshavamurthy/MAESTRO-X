@@ -62,16 +62,37 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 """
 Configurations-II: Simulation parameters
 """
+
 np.random.seed(6)
-bw, n_c = 20e6, 4
-pi, bw_ = np.pi, bw / n_c
-snr_0 = linear((5e6 * 40) / bw_)
+pi, bw = np.pi, 20e6
 a_los, a_nlos, kappa = 2.0, 2.8, 0.2
-a, m, n, n_xu, omi = 1e3, 256, 30, 3, 0.8
-r_bounds, th_bounds, h_bs, h_uavs, h_gns = (-a, a), (0, 2 * pi), 80.0, 200.0, 0.0
-k_1, k_2, z_1, z_2, ra_conf, ra_tol = 1.0, np.log(100) / 90.0, 9.61, 0.16, 10, 1e-10
+a, m, n, n_xu, omi = 1e3, 32, 1000, 1, 0.8
 utip, v0, p1, p2, p3, v_min, v_max, v_num = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 25
-data_lens, arr_rates, num_uavs, num_gns = [1e6, 10e6, 100e6], {1e6: 1.67e-2, 10e6: 3.33e-3, 100e6: 5.56e-4}, 1, n
+r_bounds, th_bounds, h_bs, h_uavs, h_gns, ra_conf, ra_tol = (-a, a), (0, 2 * pi), 80.0, 200.0, 0.0, 10, 1e-10
+data_lens, arr_rates_r, num_uavs, num_gns_r = [1e6, 10e6, 100e6], {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}, 3, 150
+
+depl_env, rf, le_l, le_m, le_h = 'rural', num_uavs, 1, 10, 100
+num_gns_l, arr_rates_l = num_gns_r * rf * le_l, {_k: _v * rf for _k, _v in arr_rates_r.items()}
+num_gns_m, arr_rates_m = num_gns_r * rf * le_m, {_k: _v * rf * le_m for _k, _v in arr_rates_r.items()}
+num_gns_h, arr_rates_h = num_gns_r * rf * le_h, {_k: _v * rf * le_h for _k, _v in arr_rates_r.items()}
+
+'''
+TODO: Change k_1, k_2, z_1, and z_2 according to the deployment environment
+TODO: Change n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
+'''
+
+if depl_env == 'rural':
+    n_c, num_gns, arr_rates = 2, num_gns_l, arr_rates_l
+    k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
+elif depl_env == 'suburban':
+    n_c, num_gns, arr_rates = 4, num_gns_m, arr_rates_m
+    k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
+else:
+    n_c, num_gns, arr_rates = 10, num_gns_h, arr_rates_h
+    k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
+
+bw_ = bw / n_c
+snr_0 = linear((5e6 * 40) / bw_)
 
 """
 Configurations-III: Deployment settings
@@ -82,7 +103,8 @@ x_bs = tf.constant([0.0, 0.0], dtype=tf.float64)
 r_gns, th_gns = uniform(0, a ** 2, num_gns) ** 0.5, uniform(0, 2 * pi, num_gns)
 x_gns = tf.constant(list(zip(r_gns * np.cos(th_gns), r_gns * np.sin(th_gns))), dtype=tf.float64)
 
-r_uavs = [500.0]  # r_uavs (2 UAVs) = [333.33, 666.67] | r_uavs (3 UAVs) = [250.0, 500.0, 750.0]
+r_uavs = [250.0, 500.0, 750.0]
+# r_uavs (1 UAV) = [500.0] | r_uavs (2 UAVs) = [333.33, 666.67] | r_uavs (3 UAVs) = [250.0, 500.0, 750.0]
 
 th_uavs = [np.linspace(0, 2 * pi, m) for _ in range(num_uavs)]
 x_uavs = tf.constant([list(zip(r_uavs[_u] * np.cos(th_uavs[_u]),
@@ -112,10 +134,12 @@ def wait(u, x_u, z_u):
     return x_uavs[u, tf.argmin(d_u - tf.abs(tf.atan(x_uavs[u, :, 1] / x_uavs[u, :, 0]) - th_u) * r_u).numpy(), :]
 
 
-def gn_request(env, r, xs, chs, trxs, ell, ch_w, trx_w, w, s, z, e, n_w):
+def gn_request(env, xs, chs, trxs, ell, ch_w, trx_w, w, s, z, e, n_w):
     """
     Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | GN request
     """
+    r_ = np.random.randint(num_gns, size=1)[0]
+
     [tf.compat.v1.assign(xs[u], wait(u, xs[u], z[u]), validate_shape=True,
                          use_locking=True) if z[u] > 0.0 else None for u in range(num_uavs)]
 
@@ -129,7 +153,7 @@ def gn_request(env, r, xs, chs, trxs, ell, ch_w, trx_w, w, s, z, e, n_w):
         ch_w.append(ch_time - arr)
 
         s_u, s_t, s_e, s_x = min([
-            aggregated_service_metrics(u, xs[u], x_gns[r], ell, n_w) for u in range(num_uavs)],
+            aggregated_service_metrics(u, xs[u], x_gns[r_], ell, n_w) for u in range(num_uavs)],
             key=lambda y: omi * y.t + (1 - omi) * y.e + min([max([0, len(trxs[y.u][_x].put_queue) +
                                                                   len(trxs[y.u][_x].users)]) for _x in range(n_xu)]))
 
@@ -156,8 +180,8 @@ def arrivals(env, xs, chs, trxs, n_r, ell, arr, ch_w, trx_w, w, s, e, n_w):
     z = {u: 0.0 for u in range(num_uavs)}
 
     for r in range(n_r):
-        env.process(gn_request(env, r, xs, chs, trxs,
-                               ell, ch_w, trx_w, w, s, z, e, n_w))
+        env.process(gn_request(env, xs, chs, trxs, ell,
+                               ch_w, trx_w, w, s, z, e, n_w))
 
         yield env.timeout(-np.log(random_sample()) / arr)
 
@@ -372,7 +396,7 @@ def evaluate(n_w):
               f'Average Wait Delay (Transceiver) = {np.mean(trx_wait_times)} seconds.')
 
         print('[DEBUG] CIRCLEEvaluation evaluate: '
-              f'{m} UAV-relays | M/G/{n_c} and M/G/{n_xu} | '
+              f'{num_uavs} UAV-relays | M/G/{n_c} and M/G/{n_xu} | '
               f'Payload Length = [{data_len / 1e6}] Mb | P_avg = {p_avg / 1e3} kW | '
               f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(wait_times, serv_times))} seconds.\n')
 
