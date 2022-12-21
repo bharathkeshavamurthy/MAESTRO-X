@@ -144,8 +144,10 @@ THRUST_TO_WEIGHT_RATIO = 1.0
 # The total FCC-allocated bandwidth for this application ($W$) in Hz
 TOTAL_BANDWIDTH = 20e6
 
+'''
+TODO: Change this number-of-data-channels parameter according to the deployment environment (Verizon LTE/LTE-A/5G)
+'''
 # The number of orthogonal data channels ($N_{C}$) in this deployment
-# TODO: Change this number-of-data-channels parameter according to the deployment environment (Verizon LTE/LTE-A/5G)
 if DEPLOYMENT_ENVIRONMENT == 'rural':
     NUMBER_OF_CHANNELS = 2  # Verizon rural: 2x 5-MHz LTE-A
 elif DEPLOYMENT_ENVIRONMENT == 'urban':
@@ -175,8 +177,13 @@ LoS_PATH_LOSS_EXPONENT = 2.0
 # The path-loss exponent for Non-Line of Sight (NLoS) links ($\tilde{\alpha}$)
 NLoS_PATH_LOSS_EXPONENT = 2.8
 
+# The additional attenuation constant for NLoS links ($\kappa$) | This factor affects the large-scale fading dynamics
+NLoS_ATTENUATION_CONSTANT = 0.2
+
+'''
+TODO: Change these propagation environment specific parameters according to the deployment environment
+'''
 # The propagation environment specific parameter ($z_{1}$) for LoS/NLoS probability determination
-# TODO: Change these propagation environment specific parameters according to the deployment environment
 if DEPLOYMENT_ENVIRONMENT == 'rural':
     LoS_RICIAN_FACTOR_1 = 1.0
     LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
@@ -192,9 +199,6 @@ else:
     LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
     PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
     PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
-
-# The additional attenuation constant for NLoS links ($\kappa$) | This factor affects the large-scale fading dynamics
-NLoS_ATTENUATION_CONSTANT = 0.2
 
 ''' Algorithmic model '''
 

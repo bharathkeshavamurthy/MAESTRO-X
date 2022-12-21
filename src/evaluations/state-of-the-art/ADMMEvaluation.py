@@ -65,7 +65,6 @@ num_gns_h, arr_rates_h = num_gns_r * rf * le_h, {_k: _v * rf * le_h for _k, _v i
 '''
 TODO: Change z1 and z2 according to the deployment environment
 TODO: Change n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
-TODO: Change n_xu = n_c, if we decide to remove the restriction on max number of simultaneous users (OFDMA)
 '''
 
 if depl_env == 'rural':
@@ -75,7 +74,6 @@ elif depl_env == 'suburban':
 else:
     n_c, num_gns, z1, z2, arr_rates = 10, num_gns_h, 9.61, 0.16, arr_rates_h
 
-# n_xu = n_c
 bw_ = bw / n_c
 snr_0 = linear((5e6 * 40) / bw_)
 

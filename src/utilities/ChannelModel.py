@@ -78,6 +78,9 @@ PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
 
 ''' Algorithmic model'''
 
+# The maximum number of concurrent workers allowed in this evaluation
+NUMBER_OF_WORKERS = 1024
+
 # The convergence confidence level for optimization algorithms in this framework
 CONVERGENCE_CONFIDENCE = 10
 
@@ -91,6 +94,11 @@ PLOTLY_MARKERS_MODE = 'markers'
 
 # The Plotly API "lines and markers" scatter plot mode
 PLOTLY_LINES_MARKERS_MODE = 'lines+markers'
+
+''' Link specifications '''
+# reference_coords, reference_height, node_height, link_name = [0.0, 0.0], UAV_HEIGHT, 0.0, 'GU'
+reference_coords, reference_height, node_height, link_name = [0.0, 0.0], BASE_STATION_HEIGHT, 0.0, 'GB'
+# reference_coords, reference_height, node_height, link_name = [0.0, 0.0], BASE_STATION_HEIGHT, UAV_HEIGHT, 'UB'
 
 """
 Core operations
@@ -172,7 +180,7 @@ def evaluate_nlos_throughput(d, r_star_nlos):
 
 
 def calculate_adapted_throughput(d, phi, r_star_los, r_star_nlos):
-    with ThreadPoolExecutor(max_workers=1024) as executor:
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
         executor.submit(evaluate_los_throughput, d, phi, r_star_los)
         executor.submit(evaluate_nlos_throughput, d, r_star_nlos)
 
@@ -180,19 +188,12 @@ def calculate_adapted_throughput(d, phi, r_star_los, r_star_nlos):
 # Run Trigger
 if __name__ == '__main__':
     bs_height, uav_height = BASE_STATION_HEIGHT, UAV_HEIGHT
-    cell_radius, num_levels = CELL_RADIUS, NUMBER_OF_RADIUS_LEVELS
     z_1, z_2 = PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2
+    cell_radius, num_levels, num_workers = CELL_RADIUS, NUMBER_OF_RADIUS_LEVELS, NUMBER_OF_WORKERS
 
-    levels = np.linspace(start=100.0, stop=cell_radius, num=num_levels, dtype=np.float64)
+    levels = np.linspace(start=0.0, stop=cell_radius, num=num_levels, dtype=np.float64)
     angle_choice = np.random.choice(np.linspace(start=0.0, stop=2 * np.pi, num=10 * num_levels))
     nodes = [_ * np.squeeze(np.einsum('ji', np.vstack([np.cos(angle_choice), np.sin(angle_choice)]))) for _ in levels]
-
-    """
-    Configurations-IV: Link specifications
-    """
-    reference_coords, reference_height, node_height, link_name = [0.0, 0.0], bs_height, 0.0, 'GB'
-    # reference_coords, reference_height, node_height, link_name = [0.0, 0.0], uav_height, 0.0, 'GU'
-    # reference_coords, reference_height, node_height, link_name = [0.0, 0.0], bs_height, uav_height, 'UB'
 
     xy_distances = tf.norm(tf.subtract(nodes, reference_coords), axis=1)
     relative_heights = tf.constant(abs(reference_height - node_height), shape=xy_distances.shape, dtype=tf.float64)
@@ -208,7 +209,7 @@ if __name__ == '__main__':
     p_los = 1 / (1 + (z_1 * tf.exp(-z_2 * (phi_degrees - z_1))))
     p_nlos = tf.subtract(tf.ones(shape=p_los.shape, dtype=tf.float64), p_los)
 
-    with ThreadPoolExecutor(max_workers=1024) as exeggutor:
+    with ThreadPoolExecutor(max_workers=num_workers) as exeggutor:
         for index, (distance, angle) in enumerate(zip(distances, angles)):
             exeggutor.submit(calculate_adapted_throughput, distance, angle, r_los[index], r_nlos[index])
 

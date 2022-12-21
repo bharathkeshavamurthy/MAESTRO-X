@@ -17,16 +17,14 @@ Configurations-I: Tensorflow logging | XLA-JIT enhancement
 """
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit ' \
-                             '/home/bkeshav1/workspace/repos/MAESTRO-X/src/maestro-policies/MAESTROTrajectoryDesign.py'
+                             '~/workspace/repos/MAESTRO-X/src/evaluations/maestro-policies/MAESTROTrajectoryDesign.py'
 
-import time
-import plotly
+import sys
 import warnings
 import traceback
 import numpy as np
 import tensorflow as tf
 from collections import namedtuple
-import plotly.graph_objs as graph_objs
 from scipy.stats import rice, ncx2, rayleigh
 from scipy.interpolate import UnivariateSpline
 from concurrent.futures import ThreadPoolExecutor
@@ -35,8 +33,9 @@ from concurrent.futures import ThreadPoolExecutor
 Miscellaneous
 """
 
-# Numpy seed
+# Numpy random seed | Numpy print options
 np.random.seed(6)
+np.set_printoptions(threshold=sys.maxsize)
 
 # Filter user warnings
 warnings.filterwarnings("ignore", category=UserWarning)
@@ -46,12 +45,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 
 """
-Configurations-II: Plotly API settings
-"""
-plotly.tools.set_credentials_file(username='bkeshav1', api_key='PUYaTVhV1Ok04I07S4lU')
-
-"""
-Configurations-III: Simulation parameters
+Configurations-II: Simulation parameters
 """
 
 ''' Deployment model '''
@@ -61,6 +55,9 @@ BASE_STATION_HEIGHT = 80.0
 
 # The height of the UAV from the ground ($H_{U}$) in meters
 UAV_HEIGHT = 200.0
+
+# The propagation environment under analysis
+DEPLOYMENT_ENVIRONMENT = 'rural'  # 'rural', 'urban', 'suburban'
 
 # The radius of the circular cell under evaluation ($a$) in meters
 CELL_RADIUS = 1e3
@@ -102,34 +99,47 @@ NLoS_PATH_LOSS_EXPONENT = 2.8
 # The total FCC-allocated bandwidth for this application ($B$) in Hz
 TOTAL_BANDWIDTH = 20e6
 
+'''
+TODO: Change this number-of-data-channels parameter according to the deployment environment (Verizon LTE/LTE-A/5G)
+'''
 # The number of orthogonal data channels ($N_{C}$) in this deployment
-NUMBER_OF_CHANNELS = 4
+if DEPLOYMENT_ENVIRONMENT == 'rural':
+    NUMBER_OF_CHANNELS = 2  # Verizon rural: 2x 5-MHz LTE-A
+elif DEPLOYMENT_ENVIRONMENT == 'urban':
+    NUMBER_OF_CHANNELS = 10  # Verizon NYC: 10x 5-MHz LTE-A
+else:
+    NUMBER_OF_CHANNELS = 4  # Verizon suburban: 4x 5-MHz LTE-A
 
 # The bandwidth available per orthogonal data channel ($B_{k}$) in Hz
 CHANNEL_BANDWIDTH = TOTAL_BANDWIDTH / NUMBER_OF_CHANNELS
 
-# The number of transceivers per UAV in our deployment ($N_{X|U}$)
-NUMBER_OF_TRANSCEIVERS_UAV = 4
-
-# The number of transceivers at the BS in our deployment ($N_{X|B}$)
-NUMBER_OF_TRANSCEIVERS_BS = 10
-
-# The propagation environment specific parameter ($z_{1}$) for LoS/NLoS probability determination
-PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
-
-# The propagation environment specific parameter ($z_{2}$) for LoS/NLoS probability determination
-PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
-
-# The propagation environment dependent coefficient ($k_{1}$) for the LoS Rician link model's $K$-factor
-LoS_RICIAN_FACTOR_1 = 1.0
-
-# The propagation environment dependent coefficient ($k_{2}$) for the LoS Rician link model's $K$-factor
-LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
-
 # The reference SNR level at a link distance of 1-meter ($\gamma_{GU}$, $\gamma_{GB}$, and $\gamma_{UB}$)
 REFERENCE_SNR_AT_1_METER = linear((5e6 * 40) / CHANNEL_BANDWIDTH)
 
+'''
+TODO: Change these propagation environment specific parameters according to the deployment environment
+'''
+# The propagation environment specific parameter ($z_{1}$) for LoS/NLoS probability determination
+if DEPLOYMENT_ENVIRONMENT == 'rural':
+    LoS_RICIAN_FACTOR_1 = 1.0
+    LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
+    PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
+    PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
+elif DEPLOYMENT_ENVIRONMENT == 'urban':
+    LoS_RICIAN_FACTOR_1 = 1.0
+    LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
+    PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
+    PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
+else:
+    LoS_RICIAN_FACTOR_1 = 1.0
+    LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
+    PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
+    PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
+
 ''' Algorithmic model '''
+
+# The max number of concurrent workers allowed in this evaluation
+NUMBER_OF_WORKERS = 1024
 
 # The convergence confidence level for optimization algorithms in this framework
 CONVERGENCE_CONFIDENCE = 10
@@ -147,16 +157,22 @@ CSO_VELOCITY_DISCRETIZATION_LEVELS = 25
 CSO_MINIMUM_VELOCITY_VALUE = 0.0
 
 # The maximum number of trajectory segments allowed in the HCSO solution ($M_{\text{max}}$)
-MAXIMUM_TRAJECTORY_SEGMENTS = 128
+MAXIMUM_TRAJECTORY_SEGMENTS = 32
 
 # The number of initial trajectory and UAV velocity particles in the HCSO algorithm ($N$) [Swarm Size]
 INITIAL_NUMBER_OF_PARTICLES = 400
 
 # The maximum number of cost function evaluations recommended in the CSO algorithm ($\math{N}_{\text{max}}$)
-MAXIMUM_COST_EVALUATIONS = 100
+MAXIMUM_COST_EVALUATIONS = 25
 
 # A validation multiplier to make sure that the HCSO trajectory parameters are valid vis-à-vis the algorithm
-HCSO_VALIDATION_MULTIPLIER = 10
+HCSO_VALIDATION_MULTIPLIER = 5
+
+# The smallest required distance between two nodes (UAV/GN) along the circumference of a specific radius level in m
+MIN_CIRC_DISTANCE = 25.0
+
+# The number of radii "levels" needed for discretization of comm state space $G_{R}+1$ or K_{R}+1$ or $N_{\text{sp}}$
+RADII_LEVELS = 25
 
 # The number of waypoints to be interpolated between any two given points in the generated $M$-segment trajectories
 INTERPOLATION_FACTOR = 2
@@ -170,32 +186,54 @@ HCSO_VELOCITY_SCALING_FACTOR = 1.0
 # The scaling factor that determines the degree of influence of the global means in the CSO algorithm ($\omega$)
 CSO_PARTICLE_VELOCITY_SCALING_FACTOR = 1.0
 
-''' Visualization settings '''
+# The HCSO metric in our re-formulation (new $\alpha$)
+HCSO_METRIC_ALPHA = 0.1  # 0.0, 0.1, 0.2, ..., 1.0
 
-# The Plotly API "markers-only" scatter plot mode
-PLOTLY_MARKERS_MODE = 'markers'
+# The packet length metric for this evaluation ($L$) in bits
+PACKET_LENGTH = 10e6  # 1e6, 10e6, 100e6
 
-# The Plotly API "lines and markers" scatter plot mode
-PLOTLY_LINES_MARKERS_MODE = 'lines+markers'
+# The output directory in which the logs from this evaluation have to be logged
+OUTPUT_DIR = f'../../../logs/policies/{int(PACKET_LENGTH / 1e6)}/{HCSO_METRIC_ALPHA}/trajs/'
 
 """
-Configurations-IV: Deployments (BS, GNs, and UAVs)
+Configurations-III: Node Deployments
 """
-average_power_constraint = 1.2e3
-gn_pos = tf.constant([[-570.0, 601.0]], dtype=tf.float64)
-dual_var, packet_length = 0.99 / average_power_constraint, 10e6
-uav_start_pos = tf.constant([[400.0, -300.0]], dtype=tf.float64)
-uav_end_pos = tf.constant([[-387.50, 391.50]], dtype=tf.float64)
+
+radii = np.linspace(start=0.0, stop=CELL_RADIUS, num=RADII_LEVELS)
+angles = [np.linspace(start=0.0, stop=2 * np.pi, num=int((2 * np.pi * _r) / MIN_CIRC_DISTANCE) + 1) for _r in radii]
+
+coords_dict = {_r: _r * np.einsum('ji', np.vstack([np.cos(angles[_i]),
+                                                   np.sin(angles[_i])])) for _i, _r in enumerate(radii)}
+
+comm_states_dict = {_r_u: [{_r_g: np.unique(np.rad2deg([
+    (np.arctan2(*__c_u[::-1]) - np.arctan2(*__c_g[::-1])) % (2 * np.pi) for __c_g in _c_g]))
+    for _r_g, _c_g in coords_dict.items()} for __c_u in _c_u] for _r_u, _c_u in coords_dict.items()}
+
+comm_states_arr = []
+for _r_u, _csd_u in comm_states_dict.items():
+    for _csd_gu in _csd_u:
+        for _r_g, _csd_g in _csd_gu.items():
+            for _a_gu in _csd_g:
+                comm_states_arr.append([int(_r_u), int(_r_g), int(_a_gu)])
+
+comm_actions = radii
+comm_states = np.unique(comm_states_arr, axis=0)
+
+'''
+TODO: Use this deployment discretization visualization if needed
+
+traces = []
+for _k, _v in coords_dict.items():
+    traces.append(graph_objs.Scatter(x=_v[:, 0], y=_v[:, 1],
+                                     marker=dict(size=10), mode='markers'))
+plotly.plotly.plot(dict(data=traces, layout=dict(title='Deployment Discretization Plot')))
+'''
 
 """
 Utilities
 """
 
-# A namedtuple constituting all the relevant penalty metrics involved in the CSO/HCSO cost function evaluation
-PENALTIES_CAPSULE = namedtuple('penalties_capsule', ['t_p_1', 't_p_2', 'e_p_1', 'e_p_2'])
 
-
-# Random Trajectories Generation for HCSO Initialization
 class RandomTrajectoriesGeneration(object):
     """
     Random trajectories generation
@@ -254,7 +292,6 @@ class RandomTrajectoriesGeneration(object):
                   f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
-# Deterministic Trajectories Generation for HCSO Initialization
 class DeterministicTrajectoriesGeneration(object):
     """
     Deterministic trajectories generation
@@ -293,7 +330,7 @@ class DeterministicTrajectoriesGeneration(object):
                   f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
-def __evaluate_power_consumption(uav_flying_velocity):
+def evaluate_power_consumption(uav_flying_velocity):
     """
     UAV mobility power consumption
     """
@@ -304,27 +341,29 @@ def __evaluate_power_consumption(uav_flying_velocity):
         (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5)
 
 
-def __f_z(z):
+def fz(z_):
     """
-    f(z)
+    f(Z)
     """
     b = CHANNEL_BANDWIDTH
-    return b * np.log2(1 + (0.5 * (z ** 2)))
+    return b * np.log2(1 + (0.5 * (z_ ** 2)))
 
 
-def __marcum_q(df, nc, x):
+def marcum_q(df, nc, x):
     """
     Marcum-Q
     """
     return 1 - ncx2.cdf(x, df, nc)
 
 
-def __f(z, *args):
+def f_obj(z_, *args):
     """
     Bisection objective
     """
     df, nc, y = args
-    f_z, q_m = __f_z(z), __marcum_q(df, nc, (y * (z ** 2)))
+
+    f_z = fz(z_)
+    q_m = marcum_q(df, nc, (y * (z_ ** 2)))
 
     ln_f_z = np.log(f_z) if f_z != 0.0 else -np.inf
     ln_q_m = np.log(q_m) if q_m != 0.0 else -np.inf
@@ -332,9 +371,9 @@ def __f(z, *args):
     return -ln_f_z - ln_q_m
 
 
-def __bisect(f, df, nc, y, low, high, tolerance):
+def bisect(f_, df, nc, y, low, high, tolerance):
     """
-    Bisection
+    Bisection method
     """
     args = (df, nc, y)
     assert tolerance is not None
@@ -342,80 +381,83 @@ def __bisect(f, df, nc, y, low, high, tolerance):
 
     while (not converged) or (conf < conf_th):
         mid = (high + low) / 2
-        if (f(low, *args) * f(high, *args)) > 0.0:
+        if (f_(low, *args) * f_(high, *args)) > 0.0:
             low = mid
         else:
             high = mid
-        converged = (abs(high - low) < tolerance)
+        converged = abs(high - low) < tolerance
         conf += 1 if converged else -conf
 
     return mid
 
 
-def __z(gamma):
+def z_var(gamma):
     """
-    Objective variable (z)
+    Variable for re-formulation in Z
     """
     b = CHANNEL_BANDWIDTH
     return np.sqrt(2 * ((2 ** (gamma / b)) - 1))
 
 
-def __u(gamma, d, los):
+def u_var(gamma, d, los):
     """
-    Transient change-of-variables (u)
+    Variable for re-formulation in u
     """
     b, gamma_ = CHANNEL_BANDWIDTH, REFERENCE_SNR_AT_1_METER
     alpha, alpha_, kappa = LoS_PATH_LOSS_EXPONENT, NLoS_PATH_LOSS_EXPONENT, NLoS_ATTENUATION_CONSTANT
     return ((2 ** (gamma / b)) - 1) / (gamma_ * 1 if los else kappa * (d ** -alpha if los else -alpha_))
 
 
-def __evaluate_los_throughput(d, phi, r_star_los):
+def evaluate_los_throughput(d, phi, r_star_los):
     """
-    Adapted LoS throughput
+    LoS throughput
     """
     k_1, k_2 = LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2,
     b, gamma_ = CHANNEL_BANDWIDTH, REFERENCE_SNR_AT_1_METER
     k, alpha = k_1 * np.exp(k_2 * phi), LoS_PATH_LOSS_EXPONENT
     df, nc, y, t = 2, (2 * k), (k + 1) * (1 / (gamma_ * (d ** -alpha))), BISECTION_METHOD_TOLERANCE
 
-    z_star = __bisect(__f, df, nc, y, 0,
-                      __z(b * np.log2(1 + (rice.ppf(0.9999999999, k) ** 2) * gamma_ * (d ** -alpha))), t)
+    z_star = bisect(f_obj, df, nc, y, 0,
+                    z_var(b * np.log2(1 + (rice.ppf(0.9999999999, k) ** 2) * gamma_ * (d ** -alpha))), t)
 
-    gamma_star = __f_z(z_star)
+    gamma_star = fz(z_star)
     tf.compat.v1.assign(r_star_los, gamma_star, validate_shape=True, use_locking=True)
 
 
-def __evaluate_nlos_throughput(d, r_star_nlos):
+def evaluate_nlos_throughput(d, r_star_nlos):
     """
-    Adapted NLoS throughput
+    NLoS throughput
     """
     alpha_, t = NLoS_PATH_LOSS_EXPONENT, BISECTION_METHOD_TOLERANCE
     b, gamma_, kappa = CHANNEL_BANDWIDTH, REFERENCE_SNR_AT_1_METER, NLoS_ATTENUATION_CONSTANT
 
     df, nc, y = 2, 0, 1 / (gamma_ * (kappa * (d ** -alpha_)))
 
-    z_star = __bisect(__f, df, nc, y, 0,
-                      __z(b * np.log2(1 + (rayleigh.ppf(0.9999999999) ** 2) * gamma_ * kappa * (d ** -alpha_))), t)
+    z_star = bisect(f_obj, df, nc, y, 0,
+                    z_var(b * np.log2(1 + (rayleigh.ppf(0.9999999999) ** 2) * gamma_ * kappa * (d ** -alpha_))), t)
 
-    gamma_star = __f_z(z_star)
+    gamma_star = fz(z_star)
     tf.compat.v1.assign(r_star_nlos, gamma_star, validate_shape=True, use_locking=True)
 
 
-def __calculate_adapted_throughput(d, phi, r_star_los, r_star_nlos):
+def calculate_adapted_throughput(d, phi, r_star_los, r_star_nlos):
     """
-    Adapted throughput
+    Rate-adapted throughput
     """
-    with ThreadPoolExecutor(max_workers=1024) as executor:
-        executor.submit(__evaluate_nlos_throughput, d, r_star_nlos)
-        executor.submit(__evaluate_los_throughput, d, phi, r_star_los)
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        executor.submit(evaluate_los_throughput, d, phi, r_star_los)
+        executor.submit(evaluate_nlos_throughput, d, r_star_nlos)
 
+
+max_power = evaluate_power_consumption(MAX_UAV_VELOCITY)
+PENALTIES_CAPSULE = namedtuple('penalties_capsule', ['t_p_1', 't_p_2', 'e_p_1', 'e_p_2'])
 
 """
 Core operations
 """
 
 
-def __interpolate_waypoints(p_indices, p, res_multiplier):
+def interpolate_waypoints(p_indices, p, res_multiplier):
     m = len(p_indices)
     spl_x, spl_y = UnivariateSpline(p_indices, p[:, 0], s=0), UnivariateSpline(p_indices, p[:, 1], s=0)
 
@@ -423,20 +465,20 @@ def __interpolate_waypoints(p_indices, p, res_multiplier):
                                 spl_y(np.linspace(0, m - 1, res_multiplier * m, dtype=np.float64)))))
 
 
-def __interpolate_velocities(v_indices, v, res_multiplier):
+def interpolate_velocities(v_indices, v, res_multiplier):
     m, spl_v = len(v_indices), UnivariateSpline(v_indices, v, s=0)
     return spl_v(np.linspace(0, m - 1, res_multiplier * m, dtype=np.float64))
 
 
-def __penalties(p__, v__, x_g, res_multiplier):
-    min_power = __evaluate_power_consumption(22.0)
+def penalties(p__, v__, x_g, res_multiplier):
+    min_power = evaluate_power_consumption(22.0)
     z_1, z_2 = PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2
 
-    p = __interpolate_waypoints([_ for _ in range(p__.shape[0])], p__, res_multiplier)
+    p = interpolate_waypoints([_ for _ in range(p__.shape[0])], p__, res_multiplier)
 
     midpoint, h_uav, h_bs = int(p.shape[0] / 2), UAV_HEIGHT, BASE_STATION_HEIGHT
 
-    v = __interpolate_velocities([_ for _ in range(v__.shape[0])], v__, res_multiplier)
+    v = interpolate_velocities([_ for _ in range(v__.shape[0])], v__, res_multiplier)
 
     t = tf.divide(tf.norm(tf.roll(p, shift=-1, axis=0)[:-1, :] -
                           p[:-1, :], axis=1), tf.where(tf.equal(v[:-1], 0.0), tf.ones_like(v[:-1]), v[:-1]))
@@ -454,7 +496,7 @@ def __penalties(p__, v__, x_g, res_multiplier):
 
     with ThreadPoolExecutor(max_workers=1024) as executor:
         for i__, (d_gu__, phi_gu__) in enumerate(zip(d_gu, phi_gu)):
-            executor.submit(__calculate_adapted_throughput, d_gu__, phi_gu__, r_los_gu[i__], r_nlos_gu[i__])
+            executor.submit(calculate_adapted_throughput, d_gu__, phi_gu__, r_los_gu[i__], r_nlos_gu[i__])
 
     phi_degrees_gu = (180.0 / np.pi) * phi_gu
     p_los_gu = 1 / (1 + (z_1 * tf.exp(-z_2 * (phi_degrees_gu - z_1))))
@@ -479,7 +521,7 @@ def __penalties(p__, v__, x_g, res_multiplier):
 
     with ThreadPoolExecutor(max_workers=1024) as executor:
         for i__, (d_ub__, phi_ub__) in enumerate(zip(d_ub, phi_ub)):
-            executor.submit(__calculate_adapted_throughput, d_ub__, phi_ub__, r_los_ub[i__], r_nlos_ub[i__])
+            executor.submit(calculate_adapted_throughput, d_ub__, phi_ub__, r_los_ub[i__], r_nlos_ub[i__])
 
     phi_degrees_ub = (180.0 / np.pi) * phi_ub
     p_los_ub = 1 / (1 + (z_1 * tf.exp(-z_2 * (phi_degrees_ub - z_1))))
@@ -495,21 +537,20 @@ def __penalties(p__, v__, x_g, res_multiplier):
 
 
 @tf.function
-def __power_cost(v, num_workers=1024):
-    return tf.map_fn(__evaluate_power_consumption, v, parallel_iterations=num_workers)
+def power_cost(v):
+    return tf.map_fn(evaluate_power_consumption, v, parallel_iterations=num_workers)
 
 
-def __calculate_comm_cost(p, v, nu, x_g, f_hat, e_hat=None, t_hat=None):
-    p_average, interp = average_power_constraint, INTERPOLATION_FACTOR
-
-    t_p_1, t_p_2, e_p_1, e_p_2 = __penalties(p, v, x_g, interp)
+def calculate_comm_cost(p, v, x_g, f_hat, e_hat=None, t_hat=None):
+    interp = INTERPOLATION_FACTOR
+    t_p_1, t_p_2, e_p_1, e_p_2 = penalties(p, v, x_g, interp)
     t = tf.divide(tf.norm(tf.roll(p, shift=-1, axis=0)[:-1, :] -
                           p[:-1, :], axis=1), tf.where(tf.equal(v[:-1], 0.0), tf.ones_like(v[:-1]), v[:-1]))
 
-    e__, t__ = tf.reduce_sum(tf.multiply(t, __power_cost(v[:-1]))), tf.reduce_sum(t)
+    e__, t__ = tf.reduce_sum(tf.multiply(t, power_cost(v[:-1]))), tf.reduce_sum(t)
 
-    tf.compat.v1.assign(f_hat, ((1.0 - (nu * p_average)) * (t_p_1 + t_p_2 + t__)) +
-                        (nu * (e_p_1 + e_p_2 + e__)), validate_shape=True, use_locking=True)
+    tf.compat.v1.assign(f_hat, ((1.0 - (2.0 * h_alpha)) * (t_p_1 + t_p_2 + t__)) +
+                        ((h_alpha / max_power) * (e_p_1 + e_p_2 + e__)), validate_shape=True, use_locking=True)
 
     if e_hat is not None:
         tf.compat.v1.assign(e_hat, e__, validate_shape=True, use_locking=True)
@@ -518,16 +559,16 @@ def __calculate_comm_cost(p, v, nu, x_g, f_hat, e_hat=None, t_hat=None):
         tf.compat.v1.assign(t_hat, t__, validate_shape=True, use_locking=True)
 
 
-def __update_winners_and_losers(p, v, u, w, t_j, t_j_1, p_bar, v_bar, f_hats, nu, x_g):
+def update_winners_and_losers(p, v, u, w, t_j, t_j_1, p_bar, v_bar, f_hats, x_g):
     v_min, v_max, omega = CSO_MINIMUM_VELOCITY_VALUE, MAX_UAV_VELOCITY, CSO_PARTICLE_VELOCITY_SCALING_FACTOR
 
     f_hat_t_j, f_hat_t_j_1 = tf.Variable(0.0, dtype=tf.float64), tf.Variable(0.0, dtype=tf.float64)
     p_t_j, p_t_j_1, v_t_j, v_t_j_1 = p[t_j], p[t_j_1], v[t_j], v[t_j_1]
     u_t_j, u_t_j_1, w_t_j, w_t_j_1 = u[t_j], u[t_j_1], w[t_j], w[t_j_1]
 
-    with ThreadPoolExecutor(max_workers=1024) as executor:
-        executor.submit(__calculate_comm_cost, p_t_j, v_t_j, nu, x_g, f_hat_t_j)
-        executor.submit(__calculate_comm_cost, p_t_j_1, v_t_j_1, nu, x_g, f_hat_t_j_1)
+    with ThreadPoolExecutor(max_workers=num_workers) as executor:
+        executor.submit(calculate_comm_cost, p_t_j, v_t_j, x_g, f_hat_t_j)
+        executor.submit(calculate_comm_cost, p_t_j_1, v_t_j_1, x_g, f_hat_t_j_1)
 
     argmin__ = np.argmin([f_hat_t_j, f_hat_t_j_1])
     j_win, p_w, v_w, j_los, p_l, v_l, u_l, w_l = (t_j, p_t_j, v_t_j, t_j_1, p_t_j_1, v_t_j_1, u_t_j_1, w_t_j_1) \
@@ -560,16 +601,16 @@ def __update_winners_and_losers(p, v, u, w, t_j, t_j_1, p_bar, v_bar, f_hats, nu
     tf.compat.v1.assign(w[j_los], w_j_los, validate_shape=True, use_locking=True)
 
 
-def __competitive_swarm_optimization(initial_uav_position, terminal_uav_position, ground_node_position,
-                                     trajectory_particles, uav_velocity_particles, traj_particle_velocities,
-                                     uav_velocity_particle_velocities, swarm_size, segment_size, dual_variable):
-    x_0, x_m, x_g = initial_uav_position, terminal_uav_position, ground_node_position
+def competitive_swarm_optimization(initial_uav_pos, terminal_uav_pos,
+                                   gn_pos, trajectory_particles, uav_velocity_particles,
+                                   traj_particle_velocities, uav_vel_particle_velocities, swarm_size, segment_size):
+    x_0, x_m, x_g = initial_uav_pos, terminal_uav_pos, gn_pos
 
     p, v = trajectory_particles, uav_velocity_particles
     p_bar, v_bar = tf.reduce_mean(p, axis=0), tf.reduce_mean(v, axis=0)
 
-    u, w = traj_particle_velocities, uav_velocity_particle_velocities
-    k, n, m, nu, k_max = 0, swarm_size, segment_size, dual_variable, MAXIMUM_COST_EVALUATIONS
+    u, w = traj_particle_velocities, uav_vel_particle_velocities
+    k, n, m, k_max = 0, swarm_size, segment_size, MAXIMUM_COST_EVALUATIONS
 
     f_hats = tf.Variable(tf.zeros(shape=[n, ], dtype=tf.float64), dtype=tf.float64)
     indices = [_ for _ in range(n)]
@@ -577,9 +618,9 @@ def __competitive_swarm_optimization(initial_uav_position, terminal_uav_position
     while k <= k_max:
         t = tf.random.shuffle(indices)
 
-        with ThreadPoolExecutor(max_workers=1024) as executor:
+        with ThreadPoolExecutor(max_workers=num_workers) as executor:
             for j in range(0, n, 2):
-                executor.submit(__update_winners_and_losers, p, v, u, w, t[j], t[j + 1], p_bar, v_bar, f_hats, nu, x_g)
+                executor.submit(update_winners_and_losers, p, v, u, w, t[j], t[j + 1], p_bar, v_bar, f_hats, x_g)
 
         k += 1
 
@@ -589,14 +630,9 @@ def __competitive_swarm_optimization(initial_uav_position, terminal_uav_position
 
 # noinspection PyUnusedLocal
 def hierarchical_competitive_swarm_optimization(initial_uav_position, terminal_uav_position,
-                                                dual_variable, ground_node_position, lagrangian, energy, time_duration):
-    xi_s, opt_traj = relay_status, optimal_trajectories
+                                                ground_node_position, optimal_trajectories):
+    i, f_hat = 0, tf.Variable(0.0, dtype=tf.float64)
     p_star, u_star, v_star, w_star = None, None, None, None
-    i, nu, f_hat = 0, dual_variable, tf.Variable(0.0, dtype=tf.float64)
-
-    _comm_star, e_comm_star, t_comm_star = lagrangian, energy, time_duration
-    l_comm_star, e_comm_star, t_comm_star = lagrangian, energy, time_duration
-    e_usage, delta = tf.Variable(0.0, dtype=tf.float64), tf.Variable(0.0, dtype=tf.float64)
 
     z_1, z_2 = PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2
     a, v_levels, p_len = CELL_RADIUS, CSO_VELOCITY_DISCRETIZATION_LEVELS, packet_length
@@ -621,9 +657,8 @@ def hierarchical_competitive_swarm_optimization(initial_uav_position, terminal_u
 
     # HCSO while loop
     while m <= m_max * m_ip:
-        p_star, u_star, v_star, w_star, f_star = __competitive_swarm_optimization(x_0, x_m, x_g, p, v, u, w, n, m, nu)
+        p_star, u_star, v_star, w_star, f_star = competitive_swarm_optimization(x_0, x_m, x_g, p, v, u, w, n, m)
 
-        comm_costs[time.monotonic()] = f_star
         n -= 20 * (i + 1)
 
         i += 1
@@ -631,7 +666,7 @@ def hierarchical_competitive_swarm_optimization(initial_uav_position, terminal_u
 
         # Trajectory particles
 
-        p_tilde = tf.tile(tf.expand_dims(__interpolate_waypoints(indices, p_star, m_ip), axis=0), multiples=[n, 1, 1])
+        p_tilde = tf.tile(tf.expand_dims(interpolate_waypoints(indices, p_star, m_ip), axis=0), multiples=[n, 1, 1])
         p, p_ = tf.Variable(tf.zeros(shape=p_tilde.shape, dtype=tf.float64), dtype=tf.float64), p_tilde[:, :-1, :]
 
         u = tf.Variable(tf.zeros(shape=p_tilde.shape, dtype=tf.float64), dtype=tf.float64)
@@ -660,14 +695,14 @@ def hierarchical_competitive_swarm_optimization(initial_uav_position, terminal_u
                                                                                 multiples=[1, 2]), dtype=tf.float64)),
                             validate_shape=True, use_locking=True)
 
-        tf.compat.v1.assign(u, tf.tile(tf.expand_dims(__interpolate_waypoints(indices, u_star, m_ip), axis=0),
+        tf.compat.v1.assign(u, tf.tile(tf.expand_dims(interpolate_waypoints(indices, u_star, m_ip), axis=0),
                                        multiples=[n, 1, 1]), validate_shape=True, use_locking=True)
 
         # UAV velocity particles
 
         shape_v = [n, m_ip * m]
 
-        v_tilde = tf.tile(tf.expand_dims(__interpolate_velocities(indices, v_star, m_ip), axis=0), multiples=[n, 1])
+        v_tilde = tf.tile(tf.expand_dims(interpolate_velocities(indices, v_star, m_ip), axis=0), multiples=[n, 1])
 
         v = tf.Variable(tf.zeros(shape=v_tilde.shape, dtype=tf.float64), dtype=tf.float64)
         w = tf.Variable(tf.zeros(shape=v_tilde.shape, dtype=tf.float64), dtype=tf.float64)
@@ -680,91 +715,42 @@ def hierarchical_competitive_swarm_optimization(initial_uav_position, terminal_u
         tf.compat.v1.assign(v, tf.clip_by_value(tf.add(v_tilde, v_tilde_r), v_min, v_max),
                             validate_shape=True, use_locking=True)
 
-        tf.compat.v1.assign(w, tf.tile(tf.expand_dims(__interpolate_velocities(indices, w_star, m_ip), axis=0),
+        tf.compat.v1.assign(w, tf.tile(tf.expand_dims(interpolate_velocities(indices, w_star, m_ip), axis=0),
                                        multiples=[n, 1]), validate_shape=False, use_locking=True)
 
         m *= m_ip
 
-    # Lagrangian cost determination for scheduling (Direct BS or UAV relay?)
-
-    d_gb = np.sqrt(np.add(np.square(h_b), np.square(np.linalg.norm(x_g))))
-    phi_gb = np.arcsin(tf.divide(h_b, d_gb))
-
-    r_los_gb, r_nlos_gb = tf.Variable(0.0, dtype=tf.float64), tf.Variable(0.0, dtype=tf.float64)
-
-    with ThreadPoolExecutor(max_workers=1024) as executor:
-        executor.submit(__calculate_adapted_throughput, d_gb, phi_gb, r_los_gb, r_nlos_gb)
-        executor.submit(__calculate_comm_cost, p_star, v_star, nu, x_g, f_hat, e_usage, delta)
-
-    phi_degrees_gb = (180.0 / np.pi) * phi_gb
-
-    p_los_gb = 1 / (1 + (z_1 * tf.exp(-z_2 * (phi_degrees_gb - z_1))))
-    p_nlos_gb = 1 - p_los_gb
-
-    r_bar_gb = tf.add(tf.multiply(p_los_gb, r_los_gb), tf.multiply(p_nlos_gb, r_nlos_gb))
-
-    l_xi_0 = (p_len / r_bar_gb) if r_bar_gb != 0.0 else np.inf
-    l_xi_1, e_xi_1, t_xi_1 = f_hat.numpy(), e_usage.numpy(), delta.numpy()
-    l__, e__, t__, xi__ = (l_xi_1, e_xi_1, t_xi_1, 1) if (l_xi_1 < l_xi_0) else (l_xi_0, 0.0, l_xi_0, 0)
-
-    # Core metrics for debugging and visualization
-    xi_s = xi__
-    tf.compat.v1.assign(l_comm_star, l__, validate_shape=True, use_locking=True)
-    tf.compat.v1.assign(e_comm_star, e__, validate_shape=True, use_locking=True)
-    tf.compat.v1.assign(t_comm_star, t__, validate_shape=True, use_locking=True)
-    tf.compat.v1.assign(opt_traj, p_star, validate_shape=True, use_locking=True)
+    tf.compat.v1.assign(optimal_trajectories, p_star, validate_shape=True, use_locking=True)
 
 
 # Run Trigger
 if __name__ == '__main__':
-    print('[INFO] MAESTROTrajectoryDesign main: Starting Evaluation - '
-          f'Packet Length Constraint [L] = {packet_length / 1e6} Mbits | '
-          f'Avg Power Constraint [P_avg] = {average_power_constraint / 1e3} kW.')
+    output_dir, packet_length = OUTPUT_DIR, PACKET_LENGTH
+    h_alpha, seq_num, num_workers = HCSO_METRIC_ALPHA, 0, NUMBER_OF_WORKERS
 
-    relay_status, comm_costs, traj_plot_data, lagr = 0, dict(), list(), tf.Variable(0.0, dtype=tf.float64)
-    nrg, delay = tf.Variable(0.0, dtype=tf.float64), tf.Variable(0.0, dtype=tf.float64)
+    print('[INFO] MAESTROTrajectoryDesign main: Starting MAESTRO Trajectory Design - '
+          f'Packet Length Constraint [L] = {packet_length / 1e6} Mbits | HCSO Metric [alpha] = {h_alpha}.')
 
-    optimal_trajectories = tf.Variable(tf.zeros(shape=[
-        INTERPOLATION_FACTOR * MAXIMUM_TRAJECTORY_SEGMENTS, 2], dtype=tf.float64), dtype=tf.float64)
+    for comm_state in comm_states:
+        for comm_action in comm_actions:
+            with ThreadPoolExecutor(max_workers=num_workers) as exxeggutor:
+                seq_num += 1
+                r_u_ = comm_action
+                r_u, r_gn, psi = comm_state
+                x_init = tf.constant([[r_u, 0.0]], dtype=tf.float64)
+                x_final = tf.constant([[r_u_, 0.0]], dtype=tf.float64)
+                x_gn = tf.constant([[r_gn * np.cos(psi), r_gn * np.sin(psi)]], dtype=tf.float64)
 
-    hierarchical_competitive_swarm_optimization(uav_start_pos, uav_end_pos, dual_var, gn_pos, lagr, nrg, delay)
+                o_trajs = tf.Variable(tf.zeros(shape=[INTERPOLATION_FACTOR * MAXIMUM_TRAJECTORY_SEGMENTS, 2],
+                                               dtype=tf.float64), dtype=tf.float64)
 
-    print(f'[INFO] MAESTROTrajectoryDesign main: Relay Status = {relay_status} | '
-          f'Lagrangian Cost = {lagr} | Energy Cost = {nrg} | Delay Cost = {delay}.')
+                exxeggutor.submit(hierarchical_competitive_swarm_optimization, x_init, x_final, x_gn, o_trajs)
 
-    # Lagrangian cost convergence visualization
+                tf.io.write_file(f'{output_dir}/{seq_num}.log',
+                                 tf.strings.format('{}\n{}\n{}',
+                                                   (tf.constant(str(comm_state), dtype=tf.string),
+                                                    tf.constant(str(comm_action), dtype=tf.string),
+                                                    tf.constant(str(o_trajs), dtype=tf.string))), name=f'{h_alpha}')
 
-    t_vals = list(comm_costs.keys())
-    lagr_vals = list(comm_costs.values())
-    plot_layout = dict(title='Lagrangian Cost Convergence',
-                       xaxis=dict(title='Time (in s)', type='log', autorange=True),
-                       yaxis=dict(title='Lagrangian Cost', type='log', autorange=True))
-    plot_data = graph_objs.Scatter(x=t_vals, y=lagr_vals, mode=PLOTLY_LINES_MARKERS_MODE)
-
-    fig = dict(data=[plot_data], layout=plot_layout)
-    fig_url = plotly.plotly.plot(fig, filename='Lagrangian_Cost_Convergence', auto_open=False)
-    print('[INFO] MAESTROTrajectoryDesign main: The plot of the Lagrangian Cost versus Computation Time '
-          f'for the UAV at {uav_start_pos[0].numpy()} and GN at {gn_pos[0].numpy()} is available at - {fig_url}.')
-
-    # The optimal HCSO-determined UAV trajectory visualization
-
-    traj_plot_data.append(graph_objs.Scatter(mode=PLOTLY_MARKERS_MODE,
-                                             x=[uav_start_pos[0, 0].numpy()],
-                                             y=[uav_start_pos[0, 1].numpy()],
-                                             name='UAV Initial Position ' + str(uav_start_pos[0].numpy())))
-
-    traj_plot_data.append(graph_objs.Scatter(x=[gn_pos[0, 0].numpy()], y=[gn_pos[0, 1].numpy()],
-                                             mode=PLOTLY_MARKERS_MODE, name='GN Position ' + str(gn_pos[0].numpy())))
-
-    traj_plot_data.append(graph_objs.Scatter(x=optimal_trajectories[:, 0].numpy(),
-                                             y=optimal_trajectories[:, 1].numpy(),
-                                             mode=PLOTLY_LINES_MARKERS_MODE, name='UAV Optimal Trajectory'))
-
-    plot_layout = dict(title='Optimal HCSO-determined UAV Trajectory',
-                       xaxis=dict(title='x (in m)'), yaxis=dict(title='y (in m)'))
-
-    fig = dict(data=traj_plot_data, layout=plot_layout)
-    fig_url = plotly.plotly.plot(fig, filename='HCSO_UAV_Trajectory', auto_open=False)
-    print('[INFO] MAESTROTrajectoryDesign main: The plot of the optimal HCSO-determined UAV trajectory '
-          f'for the GN at {gn_pos[0].numpy()} [m, m], with Initial UAV Position = {uav_start_pos[0].numpy()} '
-          f'[m, m] and Terminal UAV Position = {uav_end_pos[0].numpy()} [m, m], is available at - {fig_url}.')
+    print('[INFO] MAESTROTrajectoryDesign main: MAESTRO Trajectory Design has been completed - '
+          f'Packet Length Constraint [L] = {packet_length / 1e6} Mbits | HCSO Metric [alpha] = {h_alpha}.')
