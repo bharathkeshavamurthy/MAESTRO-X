@@ -1,10 +1,6 @@
 """
-This script encapsulates the following algorithms employed in MAESTRO (our adaptive scheduling & trajectory design
-scheme for multi-winged, power-constrained, rotary UAVs):
-    1. The value iteration algorithm for the SMDP formulation,
-    2. The projected sub-gradient ascent algorithm for dual variable maximization,
-    3. The Hierarchical Competitive Swarm Optimization (HCSO) algorithm for optimal trajectory design, and
-    4. The Competitive Swarm Optimization (CSO) algorithm for lower-level trajectory optimization (driven by HCSO).
+This script encapsulates the SMDP value iteration and the projected subgradient ascent algorithms employed in MAESTRO
+(our adaptive scheduling & trajectory design scheme for multi-winged, power-constrained, rotary UAVs).
 
 Author: Bharath Keshavamurthy <bkeshava@purdue.edu | bkeshav1@asu.edu>
 Organization: School of Electrical & Computer Engineering, Purdue University, West Lafayette, IN.
@@ -19,13 +15,11 @@ import os
 Configurations-I: Tensorflow logging | XLA-JIT enhancement
 """
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
-os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit ' \
-                             '/home/bkeshav1/workspace/repos/MAESTRO-X/MAESTRO.py'
+os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit ~/workspace/repos/MAESTRO-X/MAESTRO.py'
 
 import sys
 import uuid
 import warnings
-import itertools
 import traceback
 import numpy as np
 import tensorflow as tf
@@ -57,104 +51,70 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 deg2rad, rad2deg = lambda _x: (np.pi / 180.0) * _x, lambda _x: (180.0 / np.pi) * _x
 
 """
+Configurations-II: Global simulation parameters
+"""
+
+# The data payload sizes for this evaluation ($L$) in bits
+DATA_PAYLOAD_SIZES = [1e6, 10e6, 100e6]
+
+# The max number of concurrent workers allowed in this evaluation
+NUMBER_OF_WORKERS = 1024
+
+# The output directory in which the logs from these evaluations are to be logged
+OUTPUT_DIR = '../../../logs/policies/'
+
+# The UAV average power constraints for this evaluation ($P_{\text{avg}}$) in Watts
+AVG_POWER_CONSTRAINTS = np.arange(start=1e3, stop=2.2e3, step=0.2e3)
+
+# Raw arrival rates which will be scaled w.r.t the rate factor and the load escalation factor
+RAW_ARRIVAL_RATES = {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
+
+# Low congestion ($\Lambda'$): 1.0 Mb: 5-reqs/1-min | 10.0 Mb: 1-req/1-min | 100.0 Mb: 1-req/6-min
+LOW_ARRIVAL_RATES = {_k: _v for _k, _v in RAW_ARRIVAL_RATES.items()}
+
+# High congestion ($\Lambda'$): Load escalation factor * Arrival rates for the "low congestion" regime
+HIGH_ARRIVAL_RATES = {_k: _v * 100 for _k, _v in RAW_ARRIVAL_RATES.items()}
+
+# The input directory in which the logs from the associated HCSO evaluations have been logged
+INPUT_DIR = {dp_size: f'../../../logs/policies/{int(dp_size / 1e6)}/' for dp_size in DATA_PAYLOAD_SIZES}
+
+# Moderate congestion ($\Lambda'$): Load escalation factor * Arrival rates for the "moderate congestion" regime
+MODERATE_ARRIVAL_RATES = {_k: _v * 10 for _k, _v in RAW_ARRIVAL_RATES.items()}
+
+"""
 Utilities
 """
 
 
-class RandomTrajectoriesGeneration(object):
+def log_outputs(identifier, data_payload_size, power_const, wait_states, wait_actions,
+                comm_states, comm_actions, comm_delays, energy_values, bs_delays, bs_energies, uav_delays,
+                uav_energies, optimal_trajs, optimal_velos, relay_statuses, optimal_wait_policy, optimal_comm_policy):
     """
-    Random trajectories generation
+    Log outputs
     """
+    pwr_const = int(power_const)
+    pl_size = int(data_payload_size / 1e6)
+    file = f'{OUTPUT_DIR}{int(pl_size)}-{pwr_const}.log'
 
-    def __init__(self, source, destination, radial_bounds,
-                 angular_bounds, swarm_size, segment_size, interpolation_num):
-        self.x_0, self.x_m = source, destination
-        self.r_bounds, self.theta_bounds = radial_bounds, angular_bounds
-        self.n, self.m, self.m_ip = swarm_size, segment_size, interpolation_num
-
-    def __enter__(self):
-        return self
-
-    def __generate(self, traj):
-        m = self.m
-        (r_min, r_max), (th_min, th_max) = self.r_bounds, self.theta_bounds
-        r = tf.random.uniform(shape=[m, 1], minval=r_min, maxval=r_max, dtype=tf.float64)
-        theta = tf.random.uniform(shape=[m, 1], minval=th_min, maxval=th_max, dtype=tf.float64)
-
-        tf.compat.v1.assign(traj, tf.concat([tf.multiply(r, tf.math.cos(theta)),
-                                             tf.multiply(r, tf.math.sin(theta))],
-                                            axis=1), validate_shape=True, use_locking=True)
-
-    def generate(self):
-        n, m = self.n, self.m
-        trajs = tf.Variable(tf.zeros(shape=(int(n / 2), m, 2), dtype=tf.float64), dtype=tf.float64)
-
-        with ThreadPoolExecutor(max_workers=1024) as executor:
-            [executor.submit(self.__generate, trajs[i, :]) for i in range(int(n / 2))]
-        return trajs
-
-    def __optimize(self, traj, opt_traj):
-        m_ip = self.m_ip
-        a = self.r_bounds[1]
-        x_0, x_m = self.x_0, self.x_m
-        i_s = [_ for _ in range(traj.shape[0] + 2)]
-        x = np.linspace(0, (len(i_s) - 1), (m_ip * len(i_s)), dtype=np.float64)
-
-        tf.compat.v1.assign(opt_traj, tf.clip_by_norm(tf.constant(list(zip(
-            UnivariateSpline(i_s, tf.concat([x_0[:, 0], traj[:, 0], x_m[:, 0]], axis=0), s=0)(x),
-            UnivariateSpline(i_s, tf.concat([x_0[:, 1], traj[:, 1], x_m[:, 1]], axis=0), s=0)(x)))), a, axes=1),
-                            validate_shape=True, use_locking=True)
-
-    def optimize(self, trajs):
-        n, m_post = self.n, (self.m_ip * (self.m + 2))
-        opt_trajs = tf.Variable(tf.zeros(shape=[int(n / 2), m_post, 2], dtype=tf.float64), dtype=tf.float64)
-
-        with ThreadPoolExecutor(max_workers=1024) as executor:
-            [executor.submit(self.__optimize, trajs[i, :], opt_trajs[i, :]) for i in range(int(n / 2))]
-        return opt_trajs
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_tb is not None:
-            print('[ERROR] RandomTrajectoriesGeneration Termination: Tearing things down - '
-                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
-
-
-class DeterministicTrajectoriesGeneration(object):
-    """
-    Deterministic trajectories generation
-    """
-
-    def __init__(self, source, destination, radial_bounds,
-                 angular_bounds, swarm_size, segment_size, interpolation_num):
-        self.x_0, self.x_m = source, destination
-        self.r_bounds, self.theta_bounds = radial_bounds, angular_bounds
-        self.n, self.m, self.m_ip = swarm_size, segment_size, interpolation_num
-
-    def __enter__(self):
-        return self
-
-    def generate_optimize(self):
-        a = self.r_bounds[1]
-        x_0, x_m = self.x_0, self.x_m
-        n, m_post = self.n, (self.m_ip * (self.m + 2))
-
-        x_mid = tf.divide(tf.add(x_0, x_m), 2)
-        x_mid_0 = tf.divide(tf.add(x_0, x_mid), 2)
-        x_mid_m = tf.divide(tf.add(x_mid, x_m), 2)
-        traj = tf.concat([x_mid_0, x_mid, x_mid_m], axis=0)
-
-        i_s = [_ for _ in range(traj.shape[0] + 2)]
-        x = np.linspace(0, (len(i_s) - 1), m_post, dtype=np.float64)
-
-        return tf.tile(tf.expand_dims(tf.clip_by_norm(tf.constant(list(zip(
-            UnivariateSpline(i_s, tf.concat([x_0[:, 0], traj[:, 0], x_m[:, 0]], axis=0), s=0)(x),
-            UnivariateSpline(i_s, tf.concat([x_0[:, 1], traj[:, 1], x_m[:, 1]], axis=0), s=0)(x)))), a, axes=1),
-            axis=0), multiples=[int(n / 2), 1, 1])
-
-    def __exit__(self, exc_type, exc_val, exc_tb):
-        if exc_tb is not None:
-            print('[ERROR] DeterministicTrajectoriesGeneration Termination: Tearing things down - '
-                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
+    tf.io.write_file(file, tf.strings.format('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}',
+                                             (tf.constant(str(identifier), dtype=tf.string),
+                                              tf.constant(str(power_const), dtype=tf.string),
+                                              tf.constant(str(data_payload_size), dtype=tf.string),
+                                              tf.constant(str(bs_delays.numpy()), dtype=tf.string),
+                                              tf.constant(str(uav_delays.numpy()), dtype=tf.string),
+                                              tf.constant(str(comm_delays.numpy()), dtype=tf.string),
+                                              tf.constant(str(bs_energies.numpy()), dtype=tf.string),
+                                              tf.constant(str(wait_states.numpy()), dtype=tf.string),
+                                              tf.constant(str(comm_states.numpy()), dtype=tf.string),
+                                              tf.constant(str(uav_energies.numpy()), dtype=tf.string),
+                                              tf.constant(str(wait_actions.numpy()), dtype=tf.string),
+                                              tf.constant(str(comm_actions.numpy()), dtype=tf.string),
+                                              tf.constant(str(energy_values.numpy()), dtype=tf.string),
+                                              tf.constant(str(optimal_trajs.numpy()), dtype=tf.string),
+                                              tf.constant(str(optimal_velos.numpy()), dtype=tf.string),
+                                              tf.constant(str(relay_statuses.numpy()), dtype=tf.string),
+                                              tf.constant(str(optimal_wait_policy.numpy()), dtype=tf.string),
+                                              tf.constant(str(optimal_comm_policy.numpy()), dtype=tf.string))))
 
 
 """
@@ -168,89 +128,27 @@ class MAESTRO(object):
     """
 
     """
-    Configurations-II: Simulation parameters
+    Configurations-III: Simulation parameters
     """
 
     ''' Deployment model '''
 
-    # The radius of the circular cell under evaluation ($a$) in meters
-    CELL_RADIUS = 1e3
-
-    # The positional offset to consider during UAV radius level discretization ($a_{\delta}$) in meters
-    POSITION_OFFSET = 50.0
+    # The height of the BS from the ground ($H_{B}$) in meters
+    BASE_STATION_HEIGHT = 80.0
 
     # The height of the UAV from the ground ($H_{U}$) in meters
     UAV_HEIGHT = 200.0
 
-    # The height of the BS from the ground ($H_{B}$) in meters
-    BASE_STATION_HEIGHT = 80.0
+    # The propagation environment under analysis
+    DEPLOYMENT_ENVIRONMENT = 'rural'  # 'rural', 'urban', 'suburban'
 
-    # The height of the GNs from the ground ($H_{G}$) in meters
-    GROUND_NODE_HEIGHT = 0.0
-
-    # The total number of ground nodes in this deployment ($N_{G}$)
-    NUMBER_OF_GROUND_NODES = 30
-
-    # The number of UAVs in the associated MAESTRO-X evaluation ($N_{U}$)
-    NUMBER_OF_UAVS = 1
-    # NUMBER_OF_UAVS = 2
-    # NUMBER_OF_UAVS = 3
-
-    # The number of ground nodes per unit area ($\lambda_{G}$) in GNs/m^2
-    GROUND_NODE_DENSITY = NUMBER_OF_GROUND_NODES / (np.pi * (CELL_RADIUS ** 2))
-
-    # Per-UAV: The number of communication requests originating in the cell per second ($\Lambda$) in requests/second
-    ARRIVAL_RATE = 1.67e-2 / NUMBER_OF_UAVS
-    # ARRIVAL_RATE = 3.33e-3 / NUMBER_OF_UAVS
-    # ARRIVAL_RATE = 5.5555e-4 / NUMBER_OF_UAVS
-
-    ''' Channel model '''
-
-    # The total FCC-allocated bandwidth for this application ($B$) in Hz
-    TOTAL_BANDWIDTH = 20e6
-
-    # The number of orthogonal data channels ($N_{C}$) in this deployment
-    NUMBER_OF_CHANNELS = 4
-    # NUMBER_OF_CHANNELS = 1
-    # NUMBER_OF_CHANNELS = 2
-    # NUMBER_OF_CHANNELS = 8
-    # NUMBER_OF_CHANNELS = 10
-
-    # The bandwidth available per orthogonal data channel ($B_{k}$) in Hz
-    CHANNEL_BANDWIDTH = TOTAL_BANDWIDTH / NUMBER_OF_CHANNELS
-
-    # The number of transceivers per UAV in our deployment ($N_{X|U}$)
-    NUMBER_OF_TRANSCEIVERS_UAV = 4
-
-    # The number of transceivers at the BS in our deployment ($N_{X|B}$)
-    NUMBER_OF_TRANSCEIVERS_BS = 10
-
-    # The path-loss exponent for Line of Sight (LoS) links ($\alpha$)
-    LoS_PATH_LOSS_EXPONENT = 2.0
-
-    # The propagation environment dependent coefficient ($k_{1}$) for the LoS Rician link model's $K$-factor
-    LoS_RICIAN_FACTOR_1 = 1.0
-
-    # The propagation environment dependent coefficient ($k_{2}$) for the LoS Rician link model's $K$-factor
-    LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
-
-    # The path-loss exponent for Non-Line of Sight (NLoS) links ($\tilde{\alpha}$)
-    NLoS_PATH_LOSS_EXPONENT = 2.8
-
-    # The additional NLoS attenuation factor ($\kappa$)
-    NLoS_ATTENUATION_CONSTANT = 0.2
-
-    # The reference SNR level at a link distance of 1-meter ($\gamma_{GU}$, $\gamma_{GB}$, and $\gamma_{UB}$)
-    # Note that this is $\frac{\beta_{0} P}{\sigma^{2} \Gamma}{=}40 \text{dB}$ as indicated in our manuscripts
-    REFERENCE_SNR_AT_1_METER = linear((5e6 * 40) / CHANNEL_BANDWIDTH)
-
-    # The propagation environment specific parameter ($z_{1}$) for LoS/NLoS probability determination
-    PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
-
-    # The propagation environment specific parameter ($z_{2}$) for LoS/NLoS probability determination
-    PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
+    # The radius of the circular cell under evaluation ($a$) in meters
+    CELL_RADIUS = 1e3
 
     ''' UAV mobility power consumption model '''
+
+    # The mean rotor-induced velocity ($v_{0}$) in m/s
+    MEAN_ROTOR_INDUCED_VELOCITY = 7.2
 
     # The maximum UAV velocity ($V_{\text{max}}$) in m/s
     MAX_UAV_VELOCITY = 55.0
@@ -258,52 +156,113 @@ class MAESTRO(object):
     # The rotor blade tip speed ($U_{\text{tip}}$) in m/s
     ROTOR_BLADE_TIP_SPEED = 200.0
 
-    # The thrust-to-weight ratio in the rotary-wing UAV motion model ($\kappa_{\text{UAV}}{\triangleq}\frac{T}{W}$
-    THRUST_TO_WEIGHT_RATIO = 1.0
-
-    # The mean rotor-induced velocity ($v_{0}$) in m/s
-    MEAN_ROTOR_INDUCED_VELOCITY = 7.2
-
     # The UAV power consumption profile constant 1 ($P_{1}$) relevant for blade profile evaluation
     POWER_PROFILE_CONSTANT_1 = 580.65
-
-    # The UAV power consumption profile constant 2 ($P_{2}$) relevant for induced velocity profile evaluation
-    POWER_PROFILE_CONSTANT_2 = 790.6715
 
     # The UAV power consumption profile constant 3 ($P_{3}$) which corresponds to the parasite term
     POWER_PROFILE_CONSTANT_3 = 0.0073
 
-    # The UAV's power consumption while hovering ($P_{\text{mob}}(0)$) in Watts
-    UAV_HOVER_POWER_CONSUMPTION = 1371.3215
+    # The UAV power consumption profile constant 2 ($P_{2}$) relevant for induced velocity profile evaluation
+    POWER_PROFILE_CONSTANT_2 = 790.6715
 
-    # The UAV's power consumption while flying at a power-minimizing velocity of 22 m/s ($P_{\text{mob}}(22)$) in Watts
-    UAV_POWER_MINIMIZING_POWER_CONSUMPTION = 936.7679522731312
+    # The thrust-to-weight ratio in the rotary-wing UAV motion model ($\kappa_{\text{UAV}}{\triangleq}\frac{T}{W}$
+    THRUST_TO_WEIGHT_RATIO = 1.0
+
+    ''' Channel model '''
+
+    # The additional NLoS attenuation factor ($\kappa$)
+    NLoS_ATTENUATION_CONSTANT = 0.2
+
+    # The path-loss exponent for Line of Sight (LoS) links ($\alpha$)
+    LoS_PATH_LOSS_EXPONENT = 2.0
+
+    # The total FCC-allocated bandwidth for this application ($W$) in Hz
+    TOTAL_BANDWIDTH = 20e6
+
+    # The path-loss exponent for Non-Line of Sight (NLoS) links ($\tilde{\alpha}$)
+    NLoS_PATH_LOSS_EXPONENT = 2.8
+
+    '''
+    TODO: Change this number-of-data-channels parameter according to the deployment environment (Verizon LTE/LTE-A/5G)
+    '''
+    # The number of data channels ($N_{C}$) in this deployment
+    if DEPLOYMENT_ENVIRONMENT == 'rural':
+        NUMBER_OF_CHANNELS = 2  # Verizon rural: 2x 5-MHz LTE-A
+    elif DEPLOYMENT_ENVIRONMENT == 'urban':
+        NUMBER_OF_CHANNELS = 10  # Verizon NYC: 10x 5-MHz LTE-A
+    else:
+        NUMBER_OF_CHANNELS = 4  # Verizon suburban: 4x 5-MHz LTE-A
+
+    # The bandwidth available per orthogonal data channel ($B$) in Hz
+    CHANNEL_BANDWIDTH = TOTAL_BANDWIDTH / NUMBER_OF_CHANNELS
+
+    # The reference SNR level at a link distance of 1-meter ($\gamma_{GU}$, $\gamma_{GB}$, and $\gamma_{UB}$)
+    REFERENCE_SNR_AT_1_METER = linear((5e6 * 40) / CHANNEL_BANDWIDTH)
+
+    '''
+    TODO: Change these propagation environment specific parameters according to the deployment environment
+    '''
+    # The propagation environment specific parameters used in our channel model
+    if DEPLOYMENT_ENVIRONMENT == 'rural':
+        LoS_RICIAN_FACTOR_1 = 1.0
+        LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
+        PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
+        PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
+    elif DEPLOYMENT_ENVIRONMENT == 'urban':
+        LoS_RICIAN_FACTOR_1 = 1.0
+        LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
+        PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
+        PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
+    else:
+        LoS_RICIAN_FACTOR_1 = 1.0
+        LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
+        PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
+        PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
+
+    ''' Traffic generation model '''
+
+    # The effective arrival rates for the deployment under analysis
+    if DEPLOYMENT_ENVIRONMENT == 'rural':
+        ARRIVAL_RATES = LOW_ARRIVAL_RATES
+    elif DEPLOYMENT_ENVIRONMENT == 'urban':
+        ARRIVAL_RATES = HIGH_ARRIVAL_RATES
+    else:
+        ARRIVAL_RATES = MODERATE_ARRIVAL_RATES
+
+    # A waiting state interval: a time period in which no additional request is received ($\Delta_{0}$) in seconds
+    WAITING_STATE_INTERVAL = {dp_size: -np.log(0.93) / ARRIVAL_RATES[dp_size] for dp_size in DATA_PAYLOAD_SIZES}
 
     ''' Algorithmic model '''
 
-    # A waiting state interval: a time period in which no additional request is received, in seconds ($\Delta_{0}$ s)
-    WAITING_STATE_INTERVAL = -np.log(0.93) / ARRIVAL_RATE
+    # The HCSO metrics in our re-formulation (new $\alpha$)
+    HCSO_METRICS_ALPHA = np.arange(start=0.0, stop=1.1, step=0.1)
 
-    # The number of UAV radii "levels" needed for discretization of the communication state space $N_{\text{sp}}$
-    UAV_POSITION_DISCRETIZATION_LEVELS = 25
-
-    # The number of UAV radial velocity "levels" needed for discretization of the waiting action space $R_{\text{sp}}$
-    UAV_RADIAL_VELOCITY_LEVELS = 25
-
-    # The amount of granularity in the UAV positional discretization
-    UAV_POSITION_DISCRETIZATION_GRANULARITY = 12
-
-    # The initial dual variable step-size in the projected sub-gradient ascent algorithm ($\rho_{0}$)
-    INITIAL_DUAL_VARIABLE_STEP_SIZE = 1.0
-
-    # The dual variable convergence threshold in the projected sub-gradient ascent algorithm ($\epsilon_{DI}$)
-    DUAL_CONVERGENCE_THRESHOLD = 1e-3
+    # The maximum number of trajectory segments allowed in the HCSO solution ($M_{\text{max}}$)
+    MAX_TRAJECTORY_SEGMENTS = 64
 
     # The tolerance value for the bisection method to find the optimal value of $Z$ for rate adaptation
     BISECTION_METHOD_TOLERANCE = 1e-10
 
-    # The convergence confidence level for optimization algorithms in this framework
-    CONVERGENCE_CONFIDENCE = 10
+    # The number of radii needed for discretization of comm state space $G_{R}+1$ or K_{R}+1$ or $N_{\text{sp}}$
+    RADII_LEVELS = 25
+
+    # The convergence confidence level for the bisection method to find the optimal value of $Z$ for rate adaptation
+    BISECTION_CONVERGENCE_CONFIDENCE = 10
+
+    # The smallest required distance between two nodes (UAV/GN) along the circumference of a specific radius level in m
+    MIN_CIRC_DISTANCE = 25.0
+
+    # The number of waypoints to be interpolated between any two given points in the generated $M$-segment trajectories
+    INTERPOLATION_FACTOR = 2
+
+    # The number of UAV radial velocity "levels" needed for discretization of the waiting action space $R_{\text{sp}}$
+    VELOCITY_LEVELS = 25
+
+    # The initial dual variable step-size in the projected sub-gradient ascent algorithm ($\rho_{0}$)
+    INITIAL_DUAL_VARIABLE_STEP_SIZE = 0.1
+
+    # The dual variable convergence threshold in the projected sub-gradient ascent algorithm ($\epsilon_{DI}$)
+    DUAL_CONVERGENCE_THRESHOLD = 1e-3
 
     # The primal feasibility threshold in the projected sub-gradient ascent algorithm ($\epsilon_{PF}$)
     PRIMAL_FEASIBILITY_THRESHOLD = 1e-3
@@ -314,44 +273,6 @@ class MAESTRO(object):
     # The termination threshold for the SMDP Value Iteration (VITER) algorithm ($\delta$), i.e.,
     #   terminate if $\max_{s{\in}\mathcal{S}} H(s) - \min(x_{s{\in}\mathcal{S}} H(s)) < \delta$
     VITER_TERMINATION_THRESHOLD = 1e-3
-
-    # The termination threshold for the angular velocity solution of Lagrangian minimization in the waiting states
-    ANGULAR_VELOCITY_TERMINATION_THRESHOLD = 1e-10
-
-    # The maximum number of cost function evaluations recommended in the CSO algorithm ($\math{N}_{\text{max}}$)
-    MAXIMUM_COST_EVALUATIONS = int(1e3)
-
-    # The initial number of trajectory segments in the HCSO algorithm ($M$)
-    INITIAL_TRAJECTORY_SEGMENTS = 6
-
-    # The maximum number of trajectory segments allowed in the HCSO solution ($M_{\text{max}}$)
-    MAXIMUM_TRAJECTORY_SEGMENTS = 128
-
-    # A validation multiplier to make sure that the HCSO trajectory parameters are valid vis-à-vis the algorithm
-    HCSO_VALIDATION_MULTIPLIER = 10
-
-    # The number of initial trajectory and UAV velocity particles in the HCSO algorithm ($N$) [Swarm Size]
-    INITIAL_NUMBER_OF_PARTICLES = 400
-
-    # The number of waypoints to be interpolated between any two given points in the randomly generated
-    #   $M$-segment trajectories [Random trajectory generation --> Optimization of these trajectories via Interpolation]
-    INTERPOLATION_FACTOR = 2
-
-    # The smallest UAV velocity and CSO/HCSO particle velocity value ($V_{\text{low}}$)
-    CSO_MINIMUM_VELOCITY_VALUE = 0.0
-
-    # The UAV velocity and CSO/HCSO particle velocity discretization levels
-    CSO_VELOCITY_DISCRETIZATION_LEVELS = UAV_RADIAL_VELOCITY_LEVELS
-
-    # The scaling factor employed in the "disturbance around a trajectory reference solution" aspect of HCSO ($\zeta$)
-    HCSO_TRAJECTORY_SCALING_FACTOR = 1.0
-
-    # The scaling factor employed in the "disturbance around a velocity reference solution" aspect of HCSO ($\epsilon$)
-    HCSO_VELOCITY_SCALING_FACTOR = 1.0
-
-    # The scaling factor that determines the degree of influence of the global means on the
-    #   trajectory and velocity solutions of the serving UAV (comm state) in the CSO algorithm ($\omega$)
-    CSO_PARTICLE_VELOCITY_SCALING_FACTOR = 1.0
 
     # A namedtuple constituting all the relevant penalty metrics involved in the CSO/HCSO cost function evaluation
     PENALTIES_CAPSULE = namedtuple('penalties_capsule', ['t_p_1', 't_p_2', 'e_p_1', 'e_p_2'])
@@ -382,28 +303,31 @@ class MAESTRO(object):
         print(f'[INFO] [{self.id}] MAESTRO Initialization: Bringing things up - '
               f'L = {self.packet_length / 1e6} Mb | P_avg = {self.average_power_constraint / 1e3} kW.')
 
-        # Setup with concurrent operations
+        radii = np.linspace(start=0.0, stop=self.CELL_RADIUS, num=self.RADII_LEVELS)
+        vels = np.linspace(start=-self.MAX_UAV_VELOCITY, stop=self.MAX_UAV_VELOCITY, num=self.VELOCITY_LEVELS)
 
-        with ThreadPoolExecutor(max_workers=1024) as executor:
-            executor.submit(self.__distribute_ground_nodes)
+        self.waiting_states = tf.constant(radii, dtype=tf.float64)
+        self.waiting_actions = tf.constant(vels, dtype=tf.float64)
 
-            executor.submit(self.__discretize_uav_positions,
-                            self.UAV_POSITION_DISCRETIZATION_LEVELS,
-                            self.UAV_POSITION_DISCRETIZATION_GRANULARITY)
+        angles = [np.linspace(start=0.0, stop=2 * np.pi, num=int((2 * np.pi * _r) /
+                                                                 self.MIN_CIRC_DISTANCE) + 1) for _r in radii]
 
-            executor.submit(self.__discretize_uav_radial_velocities, self.UAV_RADIAL_VELOCITY_LEVELS)
+        coords_dict = {_r: _r * np.einsum('ji', np.vstack([np.cos(angles[_i]),
+                                                           np.sin(angles[_i])])) for _i, _r in enumerate(radii)}
 
-            executor.submit(self.__evaluate_power_consumption)  # Power Profile Analyses [Inherent Test Case]
+        comm_states_dict = {_r_u: [{_r_g: np.unique(np.rad2deg([
+            (np.arctan2(*__c_u[::-1]) - np.arctan2(*__c_g[::-1])) % (2 * np.pi) for __c_g in _c_g]))
+            for _r_g, _c_g in coords_dict.items()} for __c_u in _c_u] for _r_u, _c_u in coords_dict.items()}
 
-        # State and Action Space encapsulation in "Tensors"
+        comm_states_arr = []
+        for _r_u, _csd_u in comm_states_dict.items():
+            for _csd_gu in _csd_u:
+                for _r_g, _csd_g in _csd_gu.items():
+                    for _a_gu in _csd_g:
+                        comm_states_arr.append([int(_r_u), int(_r_g), int(_a_gu)])
 
-        self.waiting_states = tf.constant(self.uav_positions_polar)
-        self.waiting_actions = tf.constant(self.uav_radial_velocity_levels)
-
-        self.comm_states = tf.constant(list(itertools.product(self.uav_positions_rect, self.gn_positions_rect)))
-        self.comm_actions = tf.constant(self.uav_positions_rect)
-
-        # Class-wide data collections for evaluation & logging
+        self.comm_actions = tf.constant(radii, dtype=tf.float64)
+        self.comm_states = tf.constant(np.unique(comm_states_arr, axis=0), dtype=tf.float64)
 
         self.o_star, self.u_star, self.u_star_indices = None, None, None
         self.relay_status = tf.Variable(tf.zeros(shape=[self.comm_states.shape[0], ], dtype=tf.int8), dtype=tf.int8)
@@ -416,61 +340,25 @@ class MAESTRO(object):
         self.bs_nrg_vals = tf.Variable(tf.zeros(shape=[self.comm_states.shape[0], ], dtype=tf.int8), dtype=tf.float64)
         self.uav_nrg_vals = tf.Variable(tf.zeros(shape=[self.comm_states.shape[0], ], dtype=tf.int8), dtype=tf.float64)
 
-        self.optimal_trajectories = tf.Variable(tf.zeros(shape=[self.comm_states.shape[0],
-                                                                self.comm_actions.shape[0],
-                                                                self.INTERPOLATION_FACTOR *
-                                                                self.MAXIMUM_TRAJECTORY_SEGMENTS, 2],
-                                                         dtype=tf.float64), dtype=tf.float64)
+        self.optimal_velocities = tf.Variable(tf.zeros(
+            shape=[self.comm_states.shape[0], self.comm_actions.shape[0],
+                   self.INTERPOLATION_FACTOR * self.MAX_TRAJECTORY_SEGMENTS], dtype=tf.float64), dtype=tf.float64)
 
-        self.optimal_velocities = tf.Variable(tf.zeros(shape=[self.comm_states.shape[0],
-                                                              self.comm_actions.shape[0],
-                                                              self.INTERPOLATION_FACTOR *
-                                                              self.MAXIMUM_TRAJECTORY_SEGMENTS],
-                                                       dtype=tf.float64), dtype=tf.float64)
+        self.optimal_trajectories = tf.Variable(tf.zeros(
+            shape=[self.comm_states.shape[0], self.comm_actions.shape[0],
+                   self.INTERPOLATION_FACTOR * self.MAX_TRAJECTORY_SEGMENTS, 2], dtype=tf.float64), dtype=tf.float64)
 
         evaluators__.append(self)  # Self-Registration
 
     def __enter__(self):
         return self
 
-    def __distribute_ground_nodes(self):
-        a, lambda_g = self.CELL_RADIUS, self.GROUND_NODE_DENSITY
-        number_of_gns = int(lambda_g * np.pi * (a ** 2))
-
-        angles = np.random.uniform(0, 2 * np.pi, number_of_gns)
-        radii = np.random.uniform(0, a ** 2, number_of_gns) ** 0.5
-        x_coords, y_coords = radii * np.cos(angles), radii * np.sin(angles)
-        self.gn_positions_polar, self.gn_positions_rect = list(zip(radii, angles)), list(zip(x_coords, y_coords))
-
-    def __discretize_uav_positions(self, discretization_level, granularity_for_evaluation):
-        a, offset = self.CELL_RADIUS, self.POSITION_OFFSET
-        self.uav_positions_polar = np.linspace(offset, a - offset, discretization_level, dtype=np.float64)
-
-        angles = np.linspace(0, 2 * np.pi, granularity_for_evaluation, dtype=np.float64)
-        cosines, sines = np.cos(angles), np.sin(angles)
-
-        coords = np.array([r * np.einsum('ji', np.vstack([cosines, sines])) for r in self.uav_positions_polar])
-        x_coords, y_coords = coords[:, :, 0].flatten(), coords[:, :, 1].flatten()
-        self.uav_positions_rect = list(zip(x_coords, y_coords))
-
-    def __evaluate_power_consumption(self, uav_flying_velocity=None):
+    def __evaluate_power_consumption(self, uav_flying_velocity):
         v, u_tip, v_0 = uav_flying_velocity, self.ROTOR_BLADE_TIP_SPEED, self.MEAN_ROTOR_INDUCED_VELOCITY
-        hover_pwr_qa, min_pwr_qa = self.UAV_HOVER_POWER_CONSUMPTION, self.UAV_POWER_MINIMIZING_POWER_CONSUMPTION
         p_1, p_2, p_3 = self.POWER_PROFILE_CONSTANT_1, self.POWER_PROFILE_CONSTANT_2, self.POWER_PROFILE_CONSTANT_3
 
-        # Functional testing call
-        if v is None:
-            hover_pwr, min_pwr = self.__evaluate_power_consumption(0.0), self.__evaluate_power_consumption(22.0)
-            assert (hover_pwr == hover_pwr_qa) and (min_pwr == min_pwr_qa)
-            return
-
-        # Normal routine call
         return (p_1 * (1 + ((3 * (v ** 2)) / (u_tip ** 2)))) + (p_3 * (v ** 3)) + \
             (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5)
-
-    def __discretize_uav_radial_velocities(self, num_levels):
-        v_max = self.MAX_UAV_VELOCITY
-        self.uav_radial_velocity_levels = np.linspace(-v_max, v_max, num_levels, dtype=np.float64)
 
     def __f_z(self, z):
         b = self.CHANNEL_BANDWIDTH
@@ -493,7 +381,7 @@ class MAESTRO(object):
     def __bisect(self, f, df, nc, y, low, high, tolerance):
         args = (df, nc, y)
         assert tolerance is not None
-        mid, converged, conf, conf_th = 0.0, False, 0, self.CONVERGENCE_CONFIDENCE
+        mid, converged, conf, conf_th = 0.0, False, 0, self.BISECTION_CONVERGENCE_CONFIDENCE
 
         while not converged or conf < conf_th:
             mid = (high + low) / 2
@@ -651,80 +539,6 @@ class MAESTRO(object):
 
         if t_hat is not None:
             tf.compat.v1.assign(t_hat, t__, validate_shape=True, use_locking=True)
-
-    def __update_winners_and_losers(self, p, v, u, w, t_j, t_j_1, p_bar, v_bar, f_hats, nu, x_g):
-        omega = self.CSO_PARTICLE_VELOCITY_SCALING_FACTOR
-        v_min, v_max = self.CSO_MINIMUM_VELOCITY_VALUE, self.MAX_UAV_VELOCITY
-        f_hat_t_j, f_hat_t_j_1 = tf.Variable(0.0, dtype=tf.float64), tf.Variable(0.0, dtype=tf.float64)
-
-        p_t_j, p_t_j_1, v_t_j, v_t_j_1 = p[t_j], p[t_j_1], v[t_j], v[t_j_1]
-        u_t_j, u_t_j_1, w_t_j, w_t_j_1 = u[t_j], u[t_j_1], w[t_j], w[t_j_1]
-
-        with ThreadPoolExecutor(max_workers=1024) as executor:
-            executor.submit(self.__calculate_comm_cost, p_t_j, v_t_j, nu, x_g, f_hat_t_j)
-            executor.submit(self.__calculate_comm_cost, p_t_j_1, v_t_j_1, nu, x_g, f_hat_t_j_1)
-
-        argmin__ = np.argmin([f_hat_t_j, f_hat_t_j_1])
-
-        j_win, p_w, v_w, j_los, p_l, v_l, u_l, w_l = (t_j, p_t_j, v_t_j, t_j_1, p_t_j_1, v_t_j_1, u_t_j_1, w_t_j_1) \
-            if (argmin__ == 0) else (t_j_1, p_t_j_1, v_t_j_1, t_j, p_t_j, v_t_j, u_t_j, w_t_j)
-
-        r_j = tf.random.uniform(shape=[3, ], dtype=tf.float64)
-
-        # Trajectory particles & associated particle velocities updates
-
-        tf.compat.v1.assign(f_hats[t_j], f_hat_t_j, validate_shape=True, use_locking=True)
-
-        u_j_los = tf.add_n([tf.multiply(r_j[0], u_l),
-                            tf.multiply(r_j[1], tf.subtract(p_w, p_l)),
-                            omega * tf.multiply(r_j[2], tf.subtract(p_bar, p_l))])
-
-        p_j_los = tf.add(p_l, u_j_los)
-        tf.compat.v1.assign(p[j_los], p_j_los, validate_shape=True, use_locking=True)
-        tf.compat.v1.assign(u[j_los], u_j_los, validate_shape=True, use_locking=True)
-
-        # UAV velocity particles & associated particle velocities updates
-
-        tf.compat.v1.assign(f_hats[t_j_1], f_hat_t_j_1, validate_shape=True, use_locking=True)
-
-        w_j_los = tf.add_n([tf.multiply(r_j[0], w_l),
-                            tf.multiply(r_j[1], tf.subtract(v_w, v_l)),
-                            omega * tf.multiply(r_j[2], tf.subtract(v_bar, v_l))])
-
-        v_j_los = tf.clip_by_value(tf.add(v_l, w_j_los), v_min, v_max)
-
-        tf.compat.v1.assign(v[j_los], v_j_los, validate_shape=True, use_locking=True)
-        tf.compat.v1.assign(w[j_los], w_j_los, validate_shape=True, use_locking=True)
-
-    def __competitive_swarm_optimization(self, initial_uav_position,
-                                         terminal_uav_position, ground_node_position,
-                                         trajectory_particles, uav_velocity_particles, traj_particle_velocities,
-                                         uav_velocity_particle_velocities, swarm_size, segment_size, dual_variable):
-        x_0, x_m, x_g = initial_uav_position, terminal_uav_position, ground_node_position
-
-        p, v = trajectory_particles, uav_velocity_particles
-        p_bar, v_bar = tf.reduce_mean(p, axis=0), tf.reduce_mean(v, axis=0)
-
-        u, w = traj_particle_velocities, uav_velocity_particle_velocities
-
-        k, n, m, nu, k_max = 0, swarm_size, segment_size, dual_variable, self.MAXIMUM_COST_EVALUATIONS
-
-        f_hats = tf.Variable(tf.zeros(shape=[n, ], dtype=tf.float64), dtype=tf.float64)
-
-        indices = [_ for _ in range(n)]
-
-        while k <= k_max:
-            t = tf.random.shuffle(indices)
-
-            with ThreadPoolExecutor(max_workers=1024) as executor:
-                for j in range(0, n, 2):
-                    executor.submit(self.__update_winners_and_losers,
-                                    p, v, u, w, t[j], t[j + 1], p_bar, v_bar, f_hats, nu, x_g)
-
-            k += 1
-
-        i = min(indices, key=lambda k__: f_hats[k__].numpy())
-        return p[i], u[i], v[i], w[i], f_hats[i]
 
     # noinspection PyUnusedLocal
     def __hierarchical_competitive_swarm_optimization(self, state_index, action_index,
@@ -1183,45 +997,18 @@ def launch_evaluation(id_, power_constraint, packet_len_constraint, evaluators_)
         evaluator__.projected_subgradient_ascent()
 
 
-def log_outputs(identifier, packet_length, avg_power_constraint, wait_states, wait_actions,
-                comm_states, comm_actions, comm_delays, energy_values, bs_delays, bs_energies, uav_delays,
-                uav_energies, optimal_trajs, optimal_velos, relay_statuses, optimal_wait_policy, optimal_comm_policy):
-    tf.io.write_file(str(identifier), tf.strings.format('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\{}',
-                                                        (tf.constant(str(identifier), dtype=tf.string),
-                                                         tf.constant(str(packet_length), dtype=tf.string),
-                                                         tf.constant(str(avg_power_constraint), dtype=tf.string),
-                                                         tf.constant(str(wait_states.numpy()), dtype=tf.string),
-                                                         tf.constant(str(wait_actions.numpy()), dtype=tf.string),
-                                                         tf.constant(str(comm_states.numpy()), dtype=tf.string),
-                                                         tf.constant(str(comm_actions.numpy()), dtype=tf.string),
-                                                         tf.constant(str(comm_delays.numpy()), dtype=tf.string),
-                                                         tf.constant(str(energy_values.numpy()), dtype=tf.string),
-                                                         tf.constant(str(bs_delays.numpy()), dtype=tf.string),
-                                                         tf.constant(str(bs_energies.numpy()), dtype=tf.string),
-                                                         tf.constant(str(uav_delays.numpy()), dtype=tf.string),
-                                                         tf.constant(str(uav_energies.numpy()), dtype=tf.string),
-                                                         tf.constant(str(optimal_trajs.numpy()), dtype=tf.string),
-                                                         tf.constant(str(optimal_velos.numpy()), dtype=tf.string),
-                                                         tf.constant(str(relay_statuses.numpy()), dtype=tf.string),
-                                                         tf.constant(str(optimal_wait_policy.numpy()), dtype=tf.string),
-                                                         tf.constant(str(optimal_comm_policy.numpy()), dtype=tf.string)
-                                                         )), name='logging_outputs')
-
-
 # Run Trigger
 if __name__ == '__main__':
-    print('[INFO] [Main Thread] MAESTRO main: Starting the evaluation of the proposed SMDP-HCSO formulation '
+    print('[INFO] [Main Thread] MAESTRO main: Starting the evaluation of the proposed SMDP formulation '
           'for adaptive multi-scale scheduling and trajectory optimization of power-constrained UAV relays...')
 
-    # A collection to house the evaluator instances for post-processing
     evaluators = list()
 
-    # Test samples
-    packet_lens = np.array([1e6, 10e6, 100e6])
-    avg_powers = np.arange(start=1e3, stop=2e3, step=0.2e3)
-    # Note that the number_of_channels parameter (and BW) has to be changed as well for our spectrum efficiency analyses
-
-    with ThreadPoolExecutor(max_workers=1024) as exxeggutor:
-        for packet_len in packet_lens:
-            for avg_power in avg_powers:
+    with ThreadPoolExecutor(max_workers=num_workers) as exxeggutor:
+        for packet_len in DATA_PAYLOAD_SIZES:
+            for avg_power in AVG_POWER_CONSTRAINTS:
                 exxeggutor.submit(launch_evaluation, uuid.uuid4(), avg_power, packet_len, evaluators)
+
+    print('[INFO] [Main Thread] MAESTRO main: Completed the evaluation of the proposed SMDP formulation '
+          'for adaptive multi-scale scheduling and trajectory optimization of power-constrained UAV relays for '
+          f'Data Payload Sizes = {DATA_PAYLOAD_SIZES} and UAV Average Power Constraints = {AVG_POWER_CONSTRAINTS}.')

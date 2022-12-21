@@ -55,7 +55,7 @@ Configurations-II: Deployment parameters | Extracted from policy on ASU ECEE EXX
 """
 
 np.random.seed(6)
-scaling_factor, data_payload_sizes = 10, [1e6, 10e6, 100e6]
+scaling_factor, data_payload_sizes, number_of_workers = 10, [1e6, 10e6, 100e6], 1024
 arrival_rates_r, n_uavs, uav_height, bs_height = {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}, 3, 200.0, 80.0
 
 '''
@@ -425,4 +425,4 @@ def evaluate(num_workers):
 
 # Run Trigger
 if __name__ == '__main__':
-    evaluate(1024)
+    evaluate(number_of_workers)

@@ -16,20 +16,20 @@ import plotly.graph_objs as graph_objs
 """
 Configurations-I: Plotly API credentials
 """
-plotly.tools.set_credentials_file(username='bkeshava', api_key='OQ5WNonFBnFj3EFDw3K1')
+plotly.tools.set_credentials_file(username='bkeshav1', api_key='wLYizSJgmQPTpcJ68Tva')
 
 """
 Configurations-II: UAV mobility power consumption model
 """
+
+# The mean rotor-induced velocity ($v_{0}$) in m/s
+MEAN_ROTOR_INDUCED_VELOCITY = 7.2
 
 # The maximum UAV velocity ($V_{\text{max}}$) in m/s
 MAX_UAV_VELOCITY = 55.0
 
 # The rotor blade tip speed ($U_{\text{tip}}$) in m/s
 ROTOR_BLADE_TIP_SPEED = 200.0
-
-# The mean rotor-induced velocity ($v_{0}$) in m/s
-MEAN_ROTOR_INDUCED_VELOCITY = 7.2
 
 # The UAV power consumption profile constant 1 ($P_{1}$) relevant w.r.t blade profile
 POWER_PROFILE_CONSTANT_1 = 580.65
@@ -73,5 +73,5 @@ plot_layout = dict(title='Rotary-Wing UAV Mobility Power Analysis',
 fig = dict(data=[plot_trace_mobility, plot_trace_communication], layout=plot_layout)
 fig_url = plotly.plotly.plot(fig, filename='UAV_Mobility_Power_Analysis', auto_open=False)
 
-print('[INFO] UAVPowerModel main: The plot illustrating the relationship between the flying velocity '
-      f'and the associated power consumption of a rotary-wing UAV is given here - {fig_url}.')
+print('[INFO] UAVPowerModel main: The plot illustrating the relationship between the '
+      'flying velocity and the associated power consumption of a rotary-wing UAV is given here - {fig_url}.')

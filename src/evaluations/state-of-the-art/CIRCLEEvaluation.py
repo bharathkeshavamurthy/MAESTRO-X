@@ -66,7 +66,7 @@ Configurations-II: Simulation parameters
 np.random.seed(6)
 pi, bw = np.pi, 20e6
 a_los, a_nlos, kappa = 2.0, 2.8, 0.2
-a, m, n, n_xu, omi = 1e3, 32, 1000, 1, 0.8
+a, m, n, n_xu, omi, num_workers = 1e3, 32, 1000, 1, 0.8, 1024
 utip, v0, p1, p2, p3, v_min, v_max, v_num = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 25
 r_bounds, th_bounds, h_bs, h_uavs, h_gns, ra_conf, ra_tol = (-a, a), (0, 2 * pi), 80.0, 200.0, 0.0, 10, 1e-10
 data_lens, arr_rates_r, num_uavs, num_gns_r = [1e6, 10e6, 100e6], {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}, 3, 150
@@ -403,4 +403,4 @@ def evaluate(n_w):
 
 # Run Trigger
 if __name__ == '__main__':
-    evaluate(1024)
+    evaluate(num_workers)

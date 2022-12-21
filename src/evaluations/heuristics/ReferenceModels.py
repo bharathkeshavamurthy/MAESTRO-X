@@ -3,12 +3,6 @@
 2. This script evaluates the performance of a HAP at a height of $H_{P}$ to serve GN requests.
 3. This script evaluates the performance of static UAVs hovering at a fixed height $H_{U}$ to serve GN requests.
 
-The key metric analyzed in this is:
-
-    "UAV Average Power Constraint (in Watts) v GN Active Communication Request Delay (in seconds)";
-        for [BS/HAP/LEO serving the GNs] and for [Number of UAVs ($N_{U}$) = 1, 2, 3, 5, 10];
-        for Payload Lengths ($L$) = 1.0 Mb, 10.0 Mb, and 100.0 Mb.
-
 Author: Bharath Keshavamurthy <bkeshava@purdue.edu | bkeshav1@asu.edu>
 Organization: School of Electrical & Computer Engineering, Purdue University, West Lafayette, IN.
               School of Electrical, Computer and Energy Engineering, Arizona State University, Tempe, AZ.
@@ -57,7 +51,7 @@ DEPLOYMENT_TYPE = 'BS'  # 'BS' | 'HAP' | 'UAV'
 # The height of the BS from the ground ($H_{B}$) in meters
 BS_HEIGHT = 80.0
 
-# The height of the HAP from the ground ($H_{U}$) in meters
+# The height of the HAP from the ground ($H_{P}$) in meters
 HAP_HEIGHT = 2e3
 
 # The height of the UAV from the ground ($H_{U}$) in meters
@@ -72,10 +66,10 @@ DEPLOYMENT_ENVIRONMENT = 'rural'  # 'rural', 'urban', 'suburban'
 # The radius of the circular cell under evaluation ($a$) in meters
 CELL_RADIUS = 1e3
 
+''' Traffic generation model '''
+
 # The total number of GNs (implies communication requests) in the cell under analysis
 NUMBER_OF_REQUESTS = 1000
-
-''' Traffic generation model '''
 
 # The rate multiplication factor for a BS-deployment
 BS_RATE_FACTOR = 3  # red (1x <=> 1-UAV) | green (2x <=> 2-UAVs) | blue (3x <=> 3-UAVs)
@@ -83,7 +77,7 @@ BS_RATE_FACTOR = 3  # red (1x <=> 1-UAV) | green (2x <=> 2-UAVs) | blue (3x <=> 
 # The rate multiplication factor for a HAP-deployment
 HAP_RATE_FACTOR = 3  # red (1x <=> 1-UAV) | green (2x <=> 2-UAVs) | blue (3x <=> 3-UAVs)
 
-# The rate multiplication factor for a HAP-deployment
+# The rate multiplication factor for a UAV-deployment
 UAV_RATE_FACTOR = NUMBER_OF_UAVS  # red (1-UAV <=> 1x) | green (2-UAV <=> 2x) | blue (3-UAVs <=> 3x)
 
 # The effective rate factor for the deployment under analysis
@@ -141,13 +135,19 @@ THRUST_TO_WEIGHT_RATIO = 1.0
 
 ''' Channel model '''
 
+# The additional attenuation constant for NLoS links ($\kappa$)
+NLoS_ATTENUATION_CONSTANT = 0.2
+
+# The path-loss exponent for Line of Sight (LoS) links ($\alpha$)
+LoS_PATH_LOSS_EXPONENT = 2.0
+
 # The total FCC-allocated bandwidth for this application ($W$) in Hz
 TOTAL_BANDWIDTH = 20e6
 
 '''
 TODO: Change this number-of-data-channels parameter according to the deployment environment (Verizon LTE/LTE-A/5G)
 '''
-# The number of orthogonal data channels ($N_{C}$) in this deployment
+# The number of data channels in this deployment ($N_{C}$)
 if DEPLOYMENT_ENVIRONMENT == 'rural':
     NUMBER_OF_CHANNELS = 2  # Verizon rural: 2x 5-MHz LTE-A
 elif DEPLOYMENT_ENVIRONMENT == 'urban':
@@ -155,12 +155,11 @@ elif DEPLOYMENT_ENVIRONMENT == 'urban':
 else:
     NUMBER_OF_CHANNELS = 4  # Verizon suburban: 4x 5-MHz LTE-A
 
+# The number of transceivers per UAV in our deployment ($K_{U}$)
+NUMBER_OF_TRANSCEIVERS_UAV = 3
+
 # The bandwidth available per orthogonal data channel ($B$) in Hz
 CHANNEL_BANDWIDTH = TOTAL_BANDWIDTH / NUMBER_OF_CHANNELS
-
-# The number of transceivers per UAV in our deployment ($K_{U}$)
-# Note that this is modeled as "maximum number of simultaneous users" in our paper
-NUMBER_OF_TRANSCEIVERS_UAV = 3
 
 # The number of transceivers at the BS in our deployment ($K_{B}$)
 NUMBER_OF_TRANSCEIVERS_BS = 10
@@ -168,22 +167,13 @@ NUMBER_OF_TRANSCEIVERS_BS = 10
 # The number of transceivers at the HAP in our deployment ($K_{P}$)
 NUMBER_OF_TRANSCEIVERS_HAP = 10
 
-# The reference SNR level at a link distance of 1-meter ($\gamma_{GU}$, $\gamma_{GB}$, and $\gamma_{UB}$)
-REFERENCE_SNR_AT_1_METER = linear((5e6 * 40) / CHANNEL_BANDWIDTH)
-
-# The path-loss exponent for Line of Sight (LoS) links ($\alpha$)
-LoS_PATH_LOSS_EXPONENT = 2.0
-
 # The path-loss exponent for Non-Line of Sight (NLoS) links ($\tilde{\alpha}$)
 NLoS_PATH_LOSS_EXPONENT = 2.8
-
-# The additional attenuation constant for NLoS links ($\kappa$) | This factor affects the large-scale fading dynamics
-NLoS_ATTENUATION_CONSTANT = 0.2
 
 '''
 TODO: Change these propagation environment specific parameters according to the deployment environment
 '''
-# The propagation environment specific parameter ($z_{1}$) for LoS/NLoS probability determination
+# The propagation environment specific parameters used in our channel model
 if DEPLOYMENT_ENVIRONMENT == 'rural':
     LoS_RICIAN_FACTOR_1 = 1.0
     LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
@@ -200,10 +190,16 @@ else:
     PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
     PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
 
+# The reference SNR level at a link distance of 1-meter ($\gamma_{GU}$, $\gamma_{GB}$, and $\gamma_{UB}$)
+REFERENCE_SNR_AT_1_METER = linear((5e6 * 40) / CHANNEL_BANDWIDTH)
+
 ''' Algorithmic model '''
 
+# The max number of concurrent workers allowed in this evaluation
+NUMBER_OF_WORKERS = 1024
+
 # The convergence confidence level for optimization algorithms in this framework
-CONVERGENCE_CONFIDENCE = 10
+BISECTION_CONVERGENCE_CONFIDENCE = 10
 
 # The tolerance value for the bisection method to find the optimal value of $Z$ for rate adaptation
 BISECTION_METHOD_TOLERANCE = 1e-10
@@ -449,7 +445,7 @@ def bs_only(payload_lengths, bs_coords, gn_coords, num_workers):
                          LoS_PATH_LOSS_EXPONENT, NLoS_PATH_LOSS_EXPONENT,
                          NLoS_ATTENUATION_CONSTANT, LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2,
                          PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2,
-                         CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
+                         BISECTION_CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
         gb_delays = link_performance.evaluate(gb_distances, gb_angles, payload_lengths, num_workers).average_delays
 
     return gb_delays
@@ -466,7 +462,7 @@ def hap_only(payload_lengths, hap_coords, gn_coords, num_workers):
                          LoS_PATH_LOSS_EXPONENT, NLoS_PATH_LOSS_EXPONENT,
                          NLoS_ATTENUATION_CONSTANT, LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2,
                          PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2,
-                         CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
+                         BISECTION_CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
         gh_delays = link_performance.evaluate(gh_distances, gh_angles, payload_lengths, num_workers).average_delays
 
     return gh_delays
@@ -493,7 +489,7 @@ def single_uav_relay(payload_lengths, bs_coords, uav_coords, gn_coords, num_work
                          LoS_PATH_LOSS_EXPONENT, NLoS_PATH_LOSS_EXPONENT,
                          NLoS_ATTENUATION_CONSTANT, LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2,
                          PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2,
-                         CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
+                         BISECTION_CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
         gu_delays = link_performance.evaluate(gu_distances, gu_angles, payload_lengths, num_workers).average_delays
         ub_delays = link_performance.evaluate(ub_distances, ub_angles, payload_lengths, num_workers).average_delays
 
@@ -530,7 +526,7 @@ def multiple_uav_relays(payload_lengths, bs_coords, multiple_uav_coords, gn_coor
                          LoS_PATH_LOSS_EXPONENT, NLoS_PATH_LOSS_EXPONENT,
                          NLoS_ATTENUATION_CONSTANT, LoS_RICIAN_FACTOR_1, LoS_RICIAN_FACTOR_2,
                          PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2,
-                         CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
+                         BISECTION_CONVERGENCE_CONFIDENCE, BISECTION_METHOD_TOLERANCE) as link_performance:
         gu_delays = link_performance.evaluate(gu_distances_min, gu_angles_min,
                                               payload_lengths, num_workers).average_delays
         ub_delays = link_performance.evaluate(ub_distances_min, ub_angles_min,
@@ -753,4 +749,4 @@ def simulate_ops(num_workers):
 
 # Run Trigger
 if __name__ == '__main__':
-    simulate_ops(num_workers=1024)
+    simulate_ops(num_workers=NUMBER_OF_WORKERS)

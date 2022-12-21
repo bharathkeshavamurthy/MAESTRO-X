@@ -30,6 +30,7 @@ Configurations-II: Simulation parameters
 pi = np.pi
 np.random.seed(6)
 a, m, m_ip, n = 1e3, 30, 2, 128
+output_dir = '../../logs/evaluations/'
 r_bounds, th_bounds = (-a, a), (0, 2 * pi)
 m_post, x_g, num_workers = (m + 2) * m_ip, tf.constant([[-570.0, 601.0]], dtype=tf.float64), 1024
 x_0, x_m = tf.constant([[400.0, -300.0]], dtype=tf.float64), tf.constant([[-387.50, 391.50]], dtype=tf.float64)
@@ -118,5 +119,5 @@ if __name__ == '__main__':
 
     combined_trajs = tf.concat([d_trajs, r_trajs], axis=0)
 
-    tf.io.write_file(str(uuid.uuid4()),
+    tf.io.write_file(f'{output_dir}{uuid.uuid4()}.log',
                      tf.strings.format('{}\n', tf.constant(str(combined_trajs.numpy()), dtype=tf.string)))

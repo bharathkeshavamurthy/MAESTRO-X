@@ -93,16 +93,16 @@ NLoS_ATTENUATION_CONSTANT = 0.2
 # The path-loss exponent for Line of Sight (LoS) links ($\alpha$)
 LoS_PATH_LOSS_EXPONENT = 2.0
 
+# The total FCC-allocated bandwidth for this application ($W$) in Hz
+TOTAL_BANDWIDTH = 20e6
+
 # The path-loss exponent for Non-Line of Sight (NLoS) links ($\tilde{\alpha}$)
 NLoS_PATH_LOSS_EXPONENT = 2.8
-
-# The total FCC-allocated bandwidth for this application ($B$) in Hz
-TOTAL_BANDWIDTH = 20e6
 
 '''
 TODO: Change this number-of-data-channels parameter according to the deployment environment (Verizon LTE/LTE-A/5G)
 '''
-# The number of orthogonal data channels ($N_{C}$) in this deployment
+# The number of data channels in this deployment ($N_{C}$)
 if DEPLOYMENT_ENVIRONMENT == 'rural':
     NUMBER_OF_CHANNELS = 2  # Verizon rural: 2x 5-MHz LTE-A
 elif DEPLOYMENT_ENVIRONMENT == 'urban':
@@ -110,16 +110,13 @@ elif DEPLOYMENT_ENVIRONMENT == 'urban':
 else:
     NUMBER_OF_CHANNELS = 4  # Verizon suburban: 4x 5-MHz LTE-A
 
-# The bandwidth available per orthogonal data channel ($B_{k}$) in Hz
+# The bandwidth available per orthogonal data channel ($B$) in Hz
 CHANNEL_BANDWIDTH = TOTAL_BANDWIDTH / NUMBER_OF_CHANNELS
-
-# The reference SNR level at a link distance of 1-meter ($\gamma_{GU}$, $\gamma_{GB}$, and $\gamma_{UB}$)
-REFERENCE_SNR_AT_1_METER = linear((5e6 * 40) / CHANNEL_BANDWIDTH)
 
 '''
 TODO: Change these propagation environment specific parameters according to the deployment environment
 '''
-# The propagation environment specific parameter ($z_{1}$) for LoS/NLoS probability determination
+# The propagation environment specific parameters used in our channel model
 if DEPLOYMENT_ENVIRONMENT == 'rural':
     LoS_RICIAN_FACTOR_1 = 1.0
     LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
@@ -136,28 +133,37 @@ else:
     PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
     PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
 
+# The reference SNR level at a link distance of 1-meter ($\gamma_{GU}$, $\gamma_{GB}$, and $\gamma_{UB}$)
+REFERENCE_SNR_AT_1_METER = linear((5e6 * 40) / CHANNEL_BANDWIDTH)
+
 ''' Algorithmic model '''
+
+# The HCSO metric in our re-formulation (new $\alpha$)
+HCSO_METRIC_ALPHA = 0.1  # 0.0, 0.1, 0.2, ..., 1.0
+
+# The data payload size for this evaluation ($L$) in bits
+DATA_PAYLOAD_SIZE = 10e6  # 1e6, 10e6, 100e6
 
 # The max number of concurrent workers allowed in this evaluation
 NUMBER_OF_WORKERS = 1024
 
-# The convergence confidence level for optimization algorithms in this framework
-CONVERGENCE_CONFIDENCE = 10
-
-# The tolerance value for the bisection method to find the optimal value of $Z$ for rate adaptation
-BISECTION_METHOD_TOLERANCE = 1e-10
+# The UAV velocity and CSO/HCSO particle velocity discretization levels
+CSO_VELOCITY_DISCRETIZATION_LEVELS = 25
 
 # The initial number of trajectory segments in the HCSO algorithm ($M$)
 INITIAL_TRAJECTORY_SEGMENTS = 6
-
-# The UAV velocity and CSO/HCSO particle velocity discretization levels
-CSO_VELOCITY_DISCRETIZATION_LEVELS = 25
 
 # The smallest UAV velocity and CSO/HCSO particle velocity value ($V_{\text{low}}$)
 CSO_MINIMUM_VELOCITY_VALUE = 0.0
 
 # The maximum number of trajectory segments allowed in the HCSO solution ($M_{\text{max}}$)
 MAXIMUM_TRAJECTORY_SEGMENTS = 32
+
+# The output directory in which the logs from this evaluation have to be logged
+OUTPUT_DIR = f'../../../logs/policies/{int(DATA_PAYLOAD_SIZE / 1e6)}/{HCSO_METRIC_ALPHA}/trajs/'
+
+# The tolerance value for the bisection method to find the optimal value of $Z$ for rate adaptation
+BISECTION_METHOD_TOLERANCE = 1e-10
 
 # The number of initial trajectory and UAV velocity particles in the HCSO algorithm ($N$) [Swarm Size]
 INITIAL_NUMBER_OF_PARTICLES = 400
@@ -168,14 +174,11 @@ MAXIMUM_COST_EVALUATIONS = 25
 # A validation multiplier to make sure that the HCSO trajectory parameters are valid vis-à-vis the algorithm
 HCSO_VALIDATION_MULTIPLIER = 5
 
-# The smallest required distance between two nodes (UAV/GN) along the circumference of a specific radius level in m
-MIN_CIRC_DISTANCE = 25.0
+# The scaling factor that determines the degree of influence of the global means in the CSO algorithm ($\omega$)
+CSO_PARTICLE_VELOCITY_SCALING_FACTOR = 1.0
 
-# The number of radii "levels" needed for discretization of comm state space $G_{R}+1$ or K_{R}+1$ or $N_{\text{sp}}$
-RADII_LEVELS = 25
-
-# The number of waypoints to be interpolated between any two given points in the generated $M$-segment trajectories
-INTERPOLATION_FACTOR = 2
+# The convergence confidence level for the bisection method to find the optimal value of $Z$ for rate adaptation
+BISECTION_CONVERGENCE_CONFIDENCE = 10
 
 # The scaling factor employed in the "disturbance around a trajectory reference solution" aspect of HCSO ($\zeta$)
 HCSO_TRAJECTORY_SCALING_FACTOR = 1.0
@@ -183,20 +186,17 @@ HCSO_TRAJECTORY_SCALING_FACTOR = 1.0
 # The scaling factor employed in the "disturbance around a velocity reference solution" aspect of HCSO ($\epsilon$)
 HCSO_VELOCITY_SCALING_FACTOR = 1.0
 
-# The scaling factor that determines the degree of influence of the global means in the CSO algorithm ($\omega$)
-CSO_PARTICLE_VELOCITY_SCALING_FACTOR = 1.0
+# The number of waypoints to be interpolated between any two given points in the generated $M$-segment trajectories
+INTERPOLATION_FACTOR = 2
 
-# The HCSO metric in our re-formulation (new $\alpha$)
-HCSO_METRIC_ALPHA = 0.1  # 0.0, 0.1, 0.2, ..., 1.0
+# The smallest required distance between two nodes (UAV/GN) along the circumference of a specific radius level in m
+MIN_CIRC_DISTANCE = 25.0
 
-# The packet length metric for this evaluation ($L$) in bits
-PACKET_LENGTH = 10e6  # 1e6, 10e6, 100e6
-
-# The output directory in which the logs from this evaluation have to be logged
-OUTPUT_DIR = f'../../../logs/policies/{int(PACKET_LENGTH / 1e6)}/{HCSO_METRIC_ALPHA}/trajs/'
+# The number of radii "levels" needed for discretization of comm state space $G_{R}+1$ or K_{R}+1$ or $N_{\text{sp}}$
+RADII_LEVELS = 25
 
 """
-Configurations-III: Node Deployments
+Node Deployments
 """
 
 radii = np.linspace(start=0.0, stop=CELL_RADIUS, num=RADII_LEVELS)
@@ -218,16 +218,6 @@ for _r_u, _csd_u in comm_states_dict.items():
 
 comm_actions = radii
 comm_states = np.unique(comm_states_arr, axis=0)
-
-'''
-TODO: Use this deployment discretization visualization if needed
-
-traces = []
-for _k, _v in coords_dict.items():
-    traces.append(graph_objs.Scatter(x=_v[:, 0], y=_v[:, 1],
-                                     marker=dict(size=10), mode='markers'))
-plotly.plotly.plot(dict(data=traces, layout=dict(title='Deployment Discretization Plot')))
-'''
 
 """
 Utilities
@@ -377,7 +367,7 @@ def bisect(f_, df, nc, y, low, high, tolerance):
     """
     args = (df, nc, y)
     assert tolerance is not None
-    mid, converged, conf, conf_th = 0.0, False, 0, CONVERGENCE_CONFIDENCE
+    mid, converged, conf, conf_th = 0.0, False, 0, BISECTION_CONVERGENCE_CONFIDENCE
 
     while (not converged) or (conf < conf_th):
         mid = (high + low) / 2
@@ -503,7 +493,7 @@ def penalties(p__, v__, x_g, res_multiplier):
     p_nlos_gu = tf.subtract(tf.ones(shape=p_los_gu.shape, dtype=tf.float64), p_los_gu)
     r_bar_gu = tf.add(tf.multiply(p_los_gu, r_los_gu), tf.multiply(p_nlos_gu, r_nlos_gu))
 
-    h_1 = packet_length - tf.reduce_sum(tf.multiply(t[:midpoint], r_bar_gu))
+    h_1 = data_payload_size - tf.reduce_sum(tf.multiply(t[:midpoint], r_bar_gu))
 
     t_p_1 = (lambda: 0.0, lambda: (h_1 / r_bar_gu[-1]) if r_bar_gu[-1] != 0.0 else np.inf)[h_1.numpy() > 0.0]()
     e_p_1 = (lambda: 0.0, lambda: (min_power * t_p_1))[h_1.numpy() > 0.0]()
@@ -528,7 +518,7 @@ def penalties(p__, v__, x_g, res_multiplier):
     p_nlos_ub = tf.subtract(tf.ones(shape=p_los_ub.shape, dtype=tf.float64), p_los_ub)
     r_bar_ub = tf.add(tf.multiply(p_los_ub, r_los_ub), tf.multiply(p_nlos_ub, r_nlos_ub))
 
-    h_2 = packet_length - tf.reduce_sum(tf.multiply(t[midpoint:], r_bar_ub[:-1]))
+    h_2 = data_payload_size - tf.reduce_sum(tf.multiply(t[midpoint:], r_bar_ub[:-1]))
 
     t_p_2 = (lambda: 0.0, lambda: (h_2 / r_bar_ub[-1]) if r_bar_ub[-1] != 0.0 else np.inf)[h_2.numpy() > 0.0]()
     e_p_2 = (lambda: 0.0, lambda: (min_power * t_p_2))[h_2.numpy() > 0.0]()
@@ -634,8 +624,8 @@ def hierarchical_competitive_swarm_optimization(initial_uav_position, terminal_u
     i, f_hat = 0, tf.Variable(0.0, dtype=tf.float64)
     p_star, u_star, v_star, w_star = None, None, None, None
 
+    a, v_levels = CELL_RADIUS, CSO_VELOCITY_DISCRETIZATION_LEVELS
     z_1, z_2 = PROPAGATION_ENVIRONMENT_PARAMETER_1, PROPAGATION_ENVIRONMENT_PARAMETER_2
-    a, v_levels, p_len = CELL_RADIUS, CSO_VELOCITY_DISCRETIZATION_LEVELS, packet_length
     v_min, v_max, eps = CSO_MINIMUM_VELOCITY_VALUE, MAX_UAV_VELOCITY, HCSO_VELOCITY_SCALING_FACTOR
 
     n, m_old, m_ip = INITIAL_NUMBER_OF_PARTICLES, INITIAL_TRAJECTORY_SEGMENTS, INTERPOLATION_FACTOR
@@ -725,11 +715,11 @@ def hierarchical_competitive_swarm_optimization(initial_uav_position, terminal_u
 
 # Run Trigger
 if __name__ == '__main__':
-    output_dir, packet_length = OUTPUT_DIR, PACKET_LENGTH
+    output_dir, data_payload_size = OUTPUT_DIR, DATA_PAYLOAD_SIZE
     h_alpha, seq_num, num_workers = HCSO_METRIC_ALPHA, 0, NUMBER_OF_WORKERS
 
     print('[INFO] MAESTROTrajectoryDesign main: Starting MAESTRO Trajectory Design - '
-          f'Packet Length Constraint [L] = {packet_length / 1e6} Mbits | HCSO Metric [alpha] = {h_alpha}.')
+          f'Data Payload Size [L] = {data_payload_size / 1e6} Mb | HCSO Metric [alpha] = {h_alpha}.')
 
     for comm_state in comm_states:
         for comm_action in comm_actions:
@@ -746,11 +736,11 @@ if __name__ == '__main__':
 
                 exxeggutor.submit(hierarchical_competitive_swarm_optimization, x_init, x_final, x_gn, o_trajs)
 
-                tf.io.write_file(f'{output_dir}/{seq_num}.log',
+                tf.io.write_file(f'{output_dir}{seq_num}.log',
                                  tf.strings.format('{}\n{}\n{}',
                                                    (tf.constant(str(comm_state), dtype=tf.string),
                                                     tf.constant(str(comm_action), dtype=tf.string),
                                                     tf.constant(str(o_trajs), dtype=tf.string))), name=f'{h_alpha}')
 
     print('[INFO] MAESTROTrajectoryDesign main: MAESTRO Trajectory Design has been completed - '
-          f'Packet Length Constraint [L] = {packet_length / 1e6} Mbits | HCSO Metric [alpha] = {h_alpha}.')
+          f'Data Payload Size [L] = {data_payload_size / 1e6} Mb | HCSO Metric [alpha] = {h_alpha}.')

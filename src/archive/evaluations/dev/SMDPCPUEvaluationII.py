@@ -1772,7 +1772,7 @@ if __name__ == '__main__':
     try:
         with ThreadPoolExecutor(max_workers=256) as exxeggutor:
             for evaluator in evaluators:
-                len__, avg_p = evaluator.packet_length, evaluator.average_power_constraint
+                len__, avg_p = evaluator.data_payload_size, evaluator.average_power_constraint
                 # Sequencing according to the order in the JSAC SI 2020 paper
                 exxeggutor.submit(evaluator.prepare_delay_power_tradeoff_data, t_p_tradeoffs)  # Delay-Power data
                 if avg_p == 1.4e3:

@@ -34,41 +34,31 @@ Configurations-III: Simulation parameters
 
 ''' Deployment model '''
 
-# The radius of the circular cell under evaluation ($a$) in meters
-CELL_RADIUS = 1e3
+# The height of the BS from the ground ($H_{B}$) in meters
+BASE_STATION_HEIGHT = 80.0
 
 # The height of the UAV from the ground ($H_{U}$) in meters
 UAV_HEIGHT = 200.0
 
-# The height of the BS from the ground ($H_{B}$) in meters
-BASE_STATION_HEIGHT = 80.0
-
 # The number of radius levels ($r$) in the cell under analysis
 NUMBER_OF_RADIUS_LEVELS = 1000
 
+# The radius of the circular cell under evaluation ($a$) in meters
+CELL_RADIUS = 1e3
+
 ''' Channel model (urban radio environment) '''
-
-# The bandwidth of each orthogonal channel assigned to this application ($B$) in Hz
-CHANNEL_BANDWIDTH = 5e6
-
-# The path-loss exponent for Line of Sight (LoS) links ($\alpha$)
-LoS_PATH_LOSS_EXPONENT = 2.0
-
-# The propagation environment dependent coefficient ($k_{1}$) for the LoS Rician link model's $K$-factor
-LoS_RICIAN_FACTOR_1 = 1.0
-
-# The propagation environment dependent coefficient ($k_{2}$) for the LoS Rician link model's $K$-factor
-LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
-
-# The path-loss exponent for Non-Line of Sight (NLoS) links ($\tilde{\alpha}$)
-NLoS_PATH_LOSS_EXPONENT = 2.8
 
 # The additional NLoS attenuation factor ($\kappa$)
 NLoS_ATTENUATION_CONSTANT = 0.2
 
-# The reference SNR level at a link distance of 1-meter ($\gamma_{GU}$, $\gamma_{GB}$, and $\gamma_{UB}$) [40 dB]
-#   Note that this is $\frac{\beta_{0} P}{\sigma^{2} \Gamma}{=}40 \text{dB}$
-REFERENCE_SNR_AT_1_METER = 1e4
+# The path-loss exponent for Line of Sight (LoS) links ($\alpha$)
+LoS_PATH_LOSS_EXPONENT = 2.0
+
+# The path-loss exponent for Non-Line of Sight (NLoS) links ($\tilde{\alpha}$)
+NLoS_PATH_LOSS_EXPONENT = 2.8
+
+# The bandwidth of each orthogonal channel assigned to this application ($B$) in Hz
+CHANNEL_BANDWIDTH = 5e6
 
 # The propagation environment specific parameter ($z_{1}$) for LoS/NLoS probability determination
 PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
@@ -76,13 +66,22 @@ PROPAGATION_ENVIRONMENT_PARAMETER_1 = 9.61
 # The propagation environment specific parameter ($z_{2}$) for LoS/NLoS probability determination
 PROPAGATION_ENVIRONMENT_PARAMETER_2 = 0.16
 
+# The propagation environment dependent coefficient ($k_{1}$) for the LoS Rician link model's $K$-factor
+LoS_RICIAN_FACTOR_1 = 1.0
+
+# The propagation environment dependent coefficient ($k_{2}$) for the LoS Rician link model's $K$-factor
+LoS_RICIAN_FACTOR_2 = np.log(100) / 90.0
+
+# The reference SNR level at a link distance of 1-meter ($\gamma_{GU}$, $\gamma_{GB}$, and $\gamma_{UB}$)
+REFERENCE_SNR_AT_1_METER = 1e4
+
 ''' Algorithmic model'''
 
 # The maximum number of concurrent workers allowed in this evaluation
 NUMBER_OF_WORKERS = 1024
 
 # The convergence confidence level for optimization algorithms in this framework
-CONVERGENCE_CONFIDENCE = 10
+BISECTION_CONVERGENCE_CONFIDENCE = 10
 
 # The tolerance value for the bisection method to find the optimal value of $Z$ for rate adaptation
 BISECTION_METHOD_TOLERANCE = 1e-10
@@ -129,7 +128,7 @@ def f(z_, *args):
 def bisect(f_, df, nc, y, low, high, tolerance):
     args = (df, nc, y)
     assert tolerance is not None
-    mid, converged, conf, conf_th = 0.0, False, 0, CONVERGENCE_CONFIDENCE
+    mid, converged, conf, conf_th = 0.0, False, 0, BISECTION_CONVERGENCE_CONFIDENCE
 
     while (not converged) or (conf < conf_th):
         mid = (high + low) / 2
@@ -215,13 +214,14 @@ if __name__ == '__main__':
 
     r_avg = tf.add(tf.multiply(p_los, r_los), tf.multiply(p_nlos, r_nlos))
 
+    x_vals, y_avg = xy_distances, r_avg.numpy() / 1e6
+
     delay_1Mb = tf.constant(1e6, dtype=tf.float64) / r_avg
     delay_10Mb = tf.constant(10e6, dtype=tf.float64) / r_avg
     delay_100Mb = tf.constant(100e6, dtype=tf.float64) / r_avg
-    x_vals, y_los, y_nlos, y_avg = xy_distances, r_los.numpy() / 1e6, r_nlos.numpy() / 1e3, r_avg.numpy() / 1e6
 
-    plot_trace_avg = graph_objs.Scatter(x=x_vals, y=y_avg, mode='lines+markers')
-    plot_layout_avg = dict(title=f'[{link_name}] Link | Rate Adapted Average Throughput',
+    plot_trace_avg = graph_objs.Scatter(x=x_vals, y=y_avg, mode=PLOTLY_LINES_MARKERS_MODE)
+    plot_layout_avg = dict(title=f'[{link_name}] Link | Rate Adapted Average Throughput in Mbps',
                            xaxis=dict(title='Tx-Rx Distance in m (projected at ground level)', autorange=True),
                            yaxis=dict(title=f'{link_name} Average Throughput in Mbps', type='log', autorange=True))
 
@@ -229,9 +229,9 @@ if __name__ == '__main__':
     fig_avg_url = plotly.plotly.plot(fig_avg, filename=''.join([link_name, '_Average_Throughputs']), auto_open=False)
     print(f'[INFO] ChannelModel main: Average throughput plot for {link_name} links is given here - {fig_avg_url}.')
 
-    plot_trace_delay_1Mb = graph_objs.Scatter(x=x_vals, y=delay_1Mb, name='1 Mb', mode='lines+markers')
-    plot_trace_delay_10Mb = graph_objs.Scatter(x=x_vals, y=delay_10Mb, name='10 Mb', mode='lines+markers')
-    plot_trace_delay_100Mb = graph_objs.Scatter(x=x_vals, y=delay_100Mb, name='100 Mb', mode='lines+markers')
+    plot_trace_delay_1Mb = graph_objs.Scatter(x=x_vals, y=delay_1Mb, name='1 Mb', mode=PLOTLY_LINES_MARKERS_MODE)
+    plot_trace_delay_10Mb = graph_objs.Scatter(x=x_vals, y=delay_10Mb, name='10 Mb', mode=PLOTLY_LINES_MARKERS_MODE)
+    plot_trace_delay_100Mb = graph_objs.Scatter(x=x_vals, y=delay_100Mb, name='100 Mb', mode=PLOTLY_LINES_MARKERS_MODE)
 
     plot_layout_delay = dict(title=f'[{link_name}] | Average Delays',
                              yaxis=dict(title=f'{link_name} Average Delay in seconds', autorange=True),
