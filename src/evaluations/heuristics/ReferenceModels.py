@@ -207,11 +207,11 @@ Configurations-III: Deployments (BS, HAP, GNs, and UAV(s))
 
 payload_sizes = [1e6, 10e6, 100e6]
 
-# Radius and angular levels
+''' GNs deployment (uniform-circular) '''
+
 radii = np.linspace(start=0.0, stop=CELL_RADIUS, num=RADII_LEVELS)
 angles = [np.linspace(start=0.0, stop=2 * np.pi, num=int((2 * np.pi * _r) / MIN_CIRC_DISTANCE) + 1) for _r in radii]
 
-# GNs (uniform-circular)
 gn_coords = tf.concat([tf.constant(_r * np.einsum('ji', np.vstack([np.cos(angles[_i]),
                                                                    np.sin(angles[_i])])),
                                    dtype=tf.float64) for _i, _r in enumerate(radii)], axis=0)
@@ -219,17 +219,19 @@ gn_coords = tf.concat([tf.constant(_r * np.einsum('ji', np.vstack([np.cos(angles
 number_of_gns = gn_coords.shape[0]
 gn_indices = [_ for _ in range(number_of_gns)]
 
-# BS-only
+''' BS deployment '''
 bs_coords = tf.tile(tf.expand_dims(tf.constant([0.0, 0.0],
                                                dtype=tf.float64), axis=0), multiples=[number_of_gns, 1])
 
-# HAP-only
+''' HAP deployment '''
 hap_coords = tf.tile(tf.expand_dims(tf.constant([0.0, 0.0],
                                                 dtype=tf.float64), axis=0), multiples=[number_of_gns, 1])
 
-# 1 static UAV-relay
+''' 1 static UAV-relay deployment '''
 uav_coords = tf.tile(tf.expand_dims(tf.constant([0.0, 0.0],
                                                 dtype=tf.float64), axis=0), multiples=[number_of_gns, 1])
+
+''' Multiple static UAV-relays deployment '''
 
 """
 # 2 static UAV-relays

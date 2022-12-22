@@ -103,6 +103,7 @@ Configurations-III: Deployment settings
 x_bs = tf.constant([0.0, 0.0], dtype=tf.float64)
 
 ''' UAV(s) deployment '''
+
 r_uavs = [250.0, 500.0, 750.0]
 # r_uavs (1 UAV) = [500.0] | r_uavs (2 UAVs) = [333.33, 666.67] | r_uavs (3 UAVs) = [250.0, 500.0, 750.0]
 

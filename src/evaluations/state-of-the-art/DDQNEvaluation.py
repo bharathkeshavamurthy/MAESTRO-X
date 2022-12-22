@@ -43,6 +43,9 @@ from concurrent.futures import ThreadPoolExecutor
 Miscellaneous
 """
 
+# Numpy seed
+np.random.seed(6)
+
 # Filter user warnings
 warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
@@ -51,16 +54,17 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 
 """
-Configurations-II: Deployment parameters | Extracted from policy on ASU ECEE EXXACT GPU cluster
+Configurations-II: Deployment settings | Extracted from policy on ASU ECEE EXXACT GPU cluster
 """
 
-np.random.seed(6)
 scaling_factor, data_payload_sizes, number_of_workers = 10, [1e6, 10e6, 100e6], 1024
 arrival_rates_r, n_uavs, uav_height, bs_height = {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}, 3, 200.0, 80.0
 
 '''
 TODO: Read these directly from the policy file as tensors instead of hard-coding them from the cluster node
 '''
+
+''' GNs deployment '''
 
 gn_heights = {-1: tf.constant(bs_height, dtype=tf.float64),
               0: tf.constant(0.0, dtype=tf.float64), 1: tf.constant(0.0, dtype=tf.float64),
@@ -75,6 +79,8 @@ gn_positions = {-1: tf.constant([0.0, 0.0], dtype=tf.float64),
                 4: tf.constant([14.0, 50.0], dtype=tf.float64), 5: tf.constant([20.0, 43.0], dtype=tf.float64),
                 6: tf.constant([42.0, 27.0], dtype=tf.float64), 7: tf.constant([42.0, 24.0], dtype=tf.float64),
                 8: tf.constant([47.0, 8.0], dtype=tf.float64), 9: tf.constant([48.0, 22.0], dtype=tf.float64)}
+
+''' UAV(s) deployment '''
 
 uav_0_trajectory = {2: tf.constant([[24.0, 24.0], [24.0, 23.0], [23.0, 23.0], [23.0, 22.0], [22.0, 22.0], [21.0, 22.0],
                                     [20.0, 22.0], [19.0, 22.0], [19.0, 21.0], [18.0, 21.0], [17.0, 21.0], [17.0, 20.0],

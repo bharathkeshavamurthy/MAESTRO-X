@@ -104,6 +104,7 @@ x_gns = tf.concat([_r * np.einsum('ji', np.vstack([np.cos(th_gns[_i]),
 num_gns = x_gns.shape[0]
 gn_indices = [_ for _ in range(num_gns)]
 
+''' UAV(s) deployment '''
 x_uavs = [tf.tile(tf.expand_dims(tf.constant([0.0, 500.0], dtype=tf.float64), axis=0), multiples=[num_gns, 1]),
           tf.tile(tf.expand_dims(tf.constant([400.0, -300.0], dtype=tf.float64), axis=0), multiples=[num_gns, 1]),
           tf.tile(tf.expand_dims(tf.constant([-400.0, -300.0], dtype=tf.float64), axis=0), multiples=[num_gns, 1])]
