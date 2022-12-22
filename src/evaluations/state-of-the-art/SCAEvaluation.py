@@ -35,8 +35,8 @@ import numpy as np
 import cvxpy as cp
 import tensorflow as tf
 from numpy.linalg import norm
+from numpy.random import choice
 from simpy import Environment, Resource
-from numpy.random import choice, uniform
 from scipy.stats import rice, ncx2, rayleigh
 from scipy.interpolate import UnivariateSpline
 
@@ -56,19 +56,20 @@ Configurations-II: Simulation parameters
 """
 
 np.random.seed(6)
-pi, bw, n_xu = np.pi, 20e6, 1
-a, m, m_ip, n, num_uavs = 1e3, 30, 2, 1000, 3
+pi, bw = np.pi, 20e6
+num_levels, min_dist = 25, 25.0
+a, m, m_ip, n, num_uavs = 1e3, 30, 2, 10000, 3
 a_los, a_nlos, kappa, m_post = 2.0, 2.8, 0.2, m_ip * (m + 2)
+depl_env, rf, le_l, le_m, le_h = 'rural', num_uavs, 1, 10, 100
 pc, ra_conf, ra_tol, cx_conf, cx_tol = 90.0, 10, 1e-10, 5, 1e-5
 r_bounds, th_bounds, h_uavs, h_gns = (-a, a), (0, 2 * pi), 200.0, 0.0
 max_iters, eps_abs, eps_rel, warm_start, verbose = int(1e6), 1e-6, 1e-6, True, True
+data_len, arr_rates_r = [1e6, 10e6, 100e6][0], {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
 utip, v0, p1, p2, p3, v_min, v_max, v_num = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 25
-data_len, arr_rates_r, num_gns_r = [1e6, 10e6, 100e6][0], {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}, 150
 
-depl_env, rf, le_l, le_m, le_h = 'rural', num_uavs, 1, 10, 100
-num_gns_l, arr_rates_l = num_gns_r * rf * le_l, {_k: _v * rf for _k, _v in arr_rates_r.items()}
-num_gns_m, arr_rates_m = num_gns_r * rf * le_m, {_k: _v * rf * le_m for _k, _v in arr_rates_r.items()}
-num_gns_h, arr_rates_h = num_gns_r * rf * le_h, {_k: _v * rf * le_h for _k, _v in arr_rates_r.items()}
+arr_rates_l = {_k: _v * rf for _k, _v in arr_rates_r.items()}
+arr_rates_m = {_k: _v * rf * le_m for _k, _v in arr_rates_r.items()}
+arr_rates_h = {_k: _v * rf * le_h for _k, _v in arr_rates_r.items()}
 
 '''
 TODO: Change k_1, k_2, z_1, and z_2 according to the deployment environment
@@ -76,28 +77,36 @@ TODO: Change n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
 '''
 
 if depl_env == 'rural':
-    n_c, num_gns, arr_rates = 2, num_gns_l, arr_rates_l
+    n_c, arr_rates = 2, arr_rates_l
     k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 elif depl_env == 'suburban':
-    n_c, num_gns, arr_rates = 4, num_gns_m, arr_rates_m
+    n_c, arr_rates = 4, arr_rates_m
     k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 else:
-    n_c, num_gns, arr_rates = 10, num_gns_h, arr_rates_h
+    n_c, arr_rates = 10, arr_rates_h
     k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 
 bw_ = bw / n_c
 snr_0 = linear((5e6 * 40) / bw_)
 
 """
-Configurations-III: Deployment parameters
+Configurations-III: Deployment settings
 """
 
-r_gns, th_gns = uniform(0, a ** 2, num_gns) ** 0.5, uniform(0, 2 * pi, num_gns)
-x_gns = tf.constant(list(zip(r_gns * np.cos(th_gns), r_gns * np.sin(th_gns))), dtype=tf.float64)
+''' GNs deployment (uniform-circular) '''
+
+r_gns = np.linspace(start=0.0, stop=a, num=num_levels)
+th_gns = [np.linspace(start=0.0, stop=2 * np.pi, num=int((2 * np.pi * _r) / min_dist) + 1) for _r in r_gns]
+
+x_gns = tf.concat([_r * np.einsum('ji', np.vstack([np.cos(th_gns[_i]),
+                                                   np.sin(th_gns[_i])])) for _i, _r in enumerate(r_gns)], axis=0)
+
+num_gns = x_gns.shape[0]
+gn_indices = [_ for _ in range(num_gns)]
 
 x_uavs = [tf.tile(tf.expand_dims(tf.constant([0.0, 500.0], dtype=tf.float64), axis=0), multiples=[num_gns, 1]),
-          tf.tile(tf.expand_dims(tf.constant([-400.0, -300.0], dtype=tf.float64), axis=0), multiples=[num_gns, 1]),
-          tf.tile(tf.expand_dims(tf.constant([400.0, -300.0], dtype=tf.float64), axis=0), multiples=[num_gns, 1])]
+          tf.tile(tf.expand_dims(tf.constant([400.0, -300.0], dtype=tf.float64), axis=0), multiples=[num_gns, 1]),
+          tf.tile(tf.expand_dims(tf.constant([-400.0, -300.0], dtype=tf.float64), axis=0), multiples=[num_gns, 1])]
 
 """
 Utilities
@@ -121,38 +130,25 @@ def mobility_pwr(v):
         (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5) + (p3 * (v ** 3))
 
 
-def gn_request(env, chs, trxs, serv_idxs, ch_w_times, trx_w_times, w_times, serv_times):
+def gn_request(env, chs, w_times, serv_times):
     """
-    Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | GN request
+    Simpy queueing model: GN request
     """
-    arrival_time = env.now
-    r_ = np.random.randint(num_gns, size=1)[0]
+    arr_time = env.now
     k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
 
     with chs[k].request() as req:
         yield req
-        ch_time = env.now
-        ch_w_times.append(ch_time - arrival_time)
-
-        trxs_ = trxs[serv_idxs[r_]]
-        x = np.argmin([max([0, len(_x.put_queue) + len(_x.users)]) for _x in trxs_])
-
-        with trxs_[x].request() as req_:
-            yield req_
-            trx_time = env.now
-            trx_w_times.append(trx_time - ch_time)
-            w_times.append(trx_time - arrival_time)
-            yield env.timeout(serv_times[r_])
+        w_times.append(env.now - arr_time)
+        yield env.timeout(serv_times[np.random.choice(gn_indices)])
 
 
-def arrivals(env, chs, trxs, n_r, arr, serv_idxs, ch_w_times, trx_w_times, w_times, serv_times):
+def arrivals(env, chs, n_r, arr, w_times, serv_times):
     """
-    Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | Poisson arrivals
+    Simpy queueing model: Poisson arrivals
     """
     for num in range(n_r):
-        env.process(gn_request(env, chs, trxs, serv_idxs,
-                               ch_w_times, trx_w_times, w_times, serv_times))
-
+        env.process(gn_request(env, chs, w_times, serv_times))
         yield env.timeout(-np.log(np.random.random_sample()) / arr)
 
 
@@ -408,14 +404,12 @@ def evaluate():
     serv_times = [tp[_k] + np.mean([
         tf.reduce_sum(tf.multiply(tau[_u, :, _k], t[_u, :])) for _u in range(n_u)]) for _k in range(n_k)]
 
-    serv_idxs = [np.argmin([tf.reduce_sum(
-        tf.multiply(tau[_u, :, _k], t[_u, :])) for _u in range(n_u)]) for _k in range(n_k)]
+    # serv_idxs = [np.argmin([tf.reduce_sum(
+    #     tf.multiply(tau[_u, :, _k], t[_u, :])) for _u in range(n_u)]) for _k in range(n_k)]
 
-    ch_w_times, trx_w_times, w_times, env = [], [], [], Environment()
+    w_times, env = [], Environment()
 
-    env.process(arrivals(env, [Resource(env) for _ in range(n_c)],
-                         {_u: [Resource(env) for _u in range(n_xu)] for _u in range(n_u)},
-                         n, arr_rates[data_len], serv_idxs, ch_w_times, trx_w_times, w_times, serv_times))
+    env.process(arrivals(env, [Resource(env) for _ in range(n_c)], n, arr_rates[data_len], w_times, serv_times))
 
     env.run()
 
@@ -425,18 +419,14 @@ def evaluate():
 
     print('[DEBUG] SCAEvaluation evaluate: '
           f'Payload Size = {data_len / 1e6} Mb | '
+          f'Average Wait Delay = {np.mean(w_times)} seconds.')
+
+    print('[DEBUG] SCAEvaluation evaluate: '
+          f'Payload Size = {data_len / 1e6} Mb | '
           f'Average Comm Delay = {np.mean(serv_times)} seconds.')
 
     print('[DEBUG] SCAEvaluation evaluate: '
-          f'Payload Size = {data_len / 1e6} Mb | '
-          f'Average Wait Delay (Channel) = {np.mean(ch_w_times)} seconds.')
-
-    print('[DEBUG] SCAEvaluation evaluate: '
-          f'Payload Size = {data_len / 1e6} Mb | '
-          f'Average Wait Delay (Transceiver) = {np.mean(trx_w_times)} seconds.')
-
-    print('[DEBUG] SCAEvaluation evaluate: '
-          f'{n_u} UAV-relays | M/G/{n_c} and M/G/{n_xu} | '
+          f'{n_u} UAV-relays | M/G/{n_c} queuing at the data channels | '
           f'Payload Length = [{data_len / 1e6}] Mb | P_avg = {p_avg / 1e3} kW | '
           f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(w_times, serv_times))} seconds.')
 

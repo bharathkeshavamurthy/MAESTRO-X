@@ -45,8 +45,8 @@ import tensorflow as tf
 from collections import namedtuple
 from simpy import Environment, Resource
 from scipy.stats import rice, ncx2, rayleigh
+from numpy.random import choice, random_sample
 from concurrent.futures import ThreadPoolExecutor
-from numpy.random import choice, uniform, random_sample
 
 """
 Miscellaneous
@@ -64,17 +64,18 @@ Configurations-II: Simulation parameters
 """
 
 np.random.seed(6)
-pi, bw = np.pi, 20e6
+num_levels, min_dist = 25, 25.0
 a_los, a_nlos, kappa = 2.0, 2.8, 0.2
-a, m, n, n_xu, omi, num_workers = 1e3, 32, 1000, 1, 0.8, 1024
+pi, bw, num_uavs, n_w = np.pi, 20e6, 3, 1024
+a, m, n, omi, num_workers = 1e3, 32, 10000, 0.8, 1024
+depl_env, rf, le_l, le_m, le_h = 'rural', num_uavs, 1, 10, 100
+data_lens, arr_rates_r = [1e6, 10e6, 100e6], {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
 utip, v0, p1, p2, p3, v_min, v_max, v_num = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 25
 r_bounds, th_bounds, h_bs, h_uavs, h_gns, ra_conf, ra_tol = (-a, a), (0, 2 * pi), 80.0, 200.0, 0.0, 10, 1e-10
-data_lens, arr_rates_r, num_uavs, num_gns_r = [1e6, 10e6, 100e6], {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}, 3, 150
 
-depl_env, rf, le_l, le_m, le_h = 'rural', num_uavs, 1, 10, 100
-num_gns_l, arr_rates_l = num_gns_r * rf * le_l, {_k: _v * rf for _k, _v in arr_rates_r.items()}
-num_gns_m, arr_rates_m = num_gns_r * rf * le_m, {_k: _v * rf * le_m for _k, _v in arr_rates_r.items()}
-num_gns_h, arr_rates_h = num_gns_r * rf * le_h, {_k: _v * rf * le_h for _k, _v in arr_rates_r.items()}
+arr_rates_l = {_k: _v * rf for _k, _v in arr_rates_r.items()}
+arr_rates_m = {_k: _v * rf * le_m for _k, _v in arr_rates_r.items()}
+arr_rates_h = {_k: _v * rf * le_h for _k, _v in arr_rates_r.items()}
 
 '''
 TODO: Change k_1, k_2, z_1, and z_2 according to the deployment environment
@@ -82,13 +83,13 @@ TODO: Change n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
 '''
 
 if depl_env == 'rural':
-    n_c, num_gns, arr_rates = 2, num_gns_l, arr_rates_l
+    n_c, arr_rates = 2, arr_rates_l
     k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 elif depl_env == 'suburban':
-    n_c, num_gns, arr_rates = 4, num_gns_m, arr_rates_m
+    n_c, arr_rates = 4, arr_rates_m
     k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 else:
-    n_c, num_gns, arr_rates = 10, num_gns_h, arr_rates_h
+    n_c, arr_rates = 10, arr_rates_h
     k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 
 bw_ = bw / n_c
@@ -98,11 +99,10 @@ snr_0 = linear((5e6 * 40) / bw_)
 Configurations-III: Deployment settings
 """
 
+''' BS deployment '''
 x_bs = tf.constant([0.0, 0.0], dtype=tf.float64)
 
-r_gns, th_gns = uniform(0, a ** 2, num_gns) ** 0.5, uniform(0, 2 * pi, num_gns)
-x_gns = tf.constant(list(zip(r_gns * np.cos(th_gns), r_gns * np.sin(th_gns))), dtype=tf.float64)
-
+''' UAV(s) deployment '''
 r_uavs = [250.0, 500.0, 750.0]
 # r_uavs (1 UAV) = [500.0] | r_uavs (2 UAVs) = [333.33, 666.67] | r_uavs (3 UAVs) = [250.0, 500.0, 750.0]
 
@@ -110,6 +110,17 @@ th_uavs = [np.linspace(0, 2 * pi, m) for _ in range(num_uavs)]
 x_uavs = tf.constant([list(zip(r_uavs[_u] * np.cos(th_uavs[_u]),
                                r_uavs[_u] * np.sin(th_uavs[_u]))) for _u in range(num_uavs)], dtype=tf.float64)
 v_uavs = tf.constant([choice(np.linspace(v_min, v_max, v_num), size=m) for _ in range(num_uavs)], dtype=tf.float64)
+
+''' GNs deployment (uniform-circular) '''
+
+r_gns = np.linspace(start=0.0, stop=a, num=num_levels)
+th_gns = [np.linspace(start=0.0, stop=2 * np.pi, num=int((2 * np.pi * _r) / min_dist) + 1) for _r in r_gns]
+
+x_gns = tf.concat([_r * np.einsum('ji', np.vstack([np.cos(th_gns[_i]),
+                                                   np.sin(th_gns[_i])])) for _i, _r in enumerate(r_gns)], axis=0)
+
+num_gns = x_gns.shape[0]
+gn_indices = [_ for _ in range(num_gns)]
 
 """
 Utilities
@@ -134,55 +145,38 @@ def wait(u, x_u, z_u):
     return x_uavs[u, tf.argmin(d_u - tf.abs(tf.atan(x_uavs[u, :, 1] / x_uavs[u, :, 0]) - th_u) * r_u).numpy(), :]
 
 
-def gn_request(env, xs, chs, trxs, ell, ch_w, trx_w, w, s, z, e, n_w):
+def gn_request(env, xs, ell, chs, w, s, z, e):
     """
-    Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | GN request
+    SimPy queueing model: GN request
     """
-    r_ = np.random.randint(num_gns, size=1)[0]
-
     [tf.compat.v1.assign(xs[u], wait(u, xs[u], z[u]), validate_shape=True,
                          use_locking=True) if z[u] > 0.0 else None for u in range(num_uavs)]
 
     arr = env.now
+    s_u, s_t, s_e, s_x = min([aggregated_service_metrics(
+        u, xs[u], x_gns[np.random.choice(gn_indices)], ell) for u in range(num_uavs)],
+        key=lambda x: omi * x.t + (1 - omi) * x.e + len(chs[x.u].put_queue) + len(chs[x.u].users))
 
-    k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
-
-    with chs[k].request() as req:
+    with chs[s_u].request() as req:
         yield req
-        ch_time = env.now
-        ch_w.append(ch_time - arr)
-
-        s_u, s_t, s_e, s_x = min([
-            aggregated_service_metrics(u, xs[u], x_gns[r_], ell, n_w) for u in range(num_uavs)],
-            key=lambda y: omi * y.t + (1 - omi) * y.e + min([max([0, len(trxs[y.u][_x].put_queue) +
-                                                                  len(trxs[y.u][_x].users)]) for _x in range(n_xu)]))
-
-        trxs_ = trxs[s_u]
-        x = np.argmin([max([0, len(_x.put_queue) + len(_x.users)]) for _x in trxs_])
-
-        with trxs_[x].request() as req_:
-            yield req_
-            trx_time = env.now
-            trx_w.append(trx_time - ch_time)
-            w.append(trx_time - arr)
-            s.append(s_t)
-            e.append(s_e)
-            yield env.timeout(s_t)
+        w.append(env.now - arr)
+        s.append(s_t)
+        e.append(s_e)
+        yield env.timeout(s_t)
 
     z[s_u] = time.monotonic()
     tf.compat.v1.assign(xs[s_u], s_x, validate_shape=True, use_locking=True)
 
 
-def arrivals(env, xs, chs, trxs, n_r, ell, arr, ch_w, trx_w, w, s, e, n_w):
+def arrivals(env, xs, chs, n_r, ell, arr, w, s, e):
     """
-    Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | Poisson arrivals
+    SimPy queueing model: Poisson arrivals
     """
     z = {u: 0.0 for u in range(num_uavs)}
 
     for r in range(n_r):
-        env.process(gn_request(env, xs, chs, trxs, ell,
-                               ch_w, trx_w, w, s, z, e, n_w))
-
+        env.process(gn_request(env, xs, ell,
+                               chs, w, s, z, e))
         yield env.timeout(-np.log(random_sample()) / arr)
 
 
@@ -249,8 +243,8 @@ class LinkPerformance(object):
 
         tf.compat.v1.assign(r_nlos, self.__f_z(z_star), validate_shape=True, use_locking=True)
 
-    def adapted_throughput(self, d, phi, r_los, r_nlos, n_w):
-        with ThreadPoolExecutor(max_workers=n_w) as executor:
+    def adapted_throughput(self, d, phi, r_los, r_nlos, n_workers):
+        with ThreadPoolExecutor(max_workers=n_workers) as executor:
             executor.submit(self.__nlos_throughput, d, r_nlos)
             executor.submit(self.__los_throughput, d, phi, r_los)
 
@@ -291,11 +285,11 @@ def ub_subtrajectory(u, m_):
 
 @tf.function
 @tf.autograph.experimental.do_not_convert
-def pwr_cost(v, n_w):
+def pwr_cost(v):
     return tf.map_fn(mobility_pwr, v, parallel_iterations=n_w)
 
 
-def gu_link_metrics(v, p, x_gn, ell, n_w):
+def gu_link_metrics(v, p, x_gn, ell):
     r_gu = tf.norm(tf.subtract(p, tf.tile(tf.expand_dims(x_gn, axis=0), multiples=[p.shape[0], 1])), axis=1)
     h_uav = tf.constant(h_uavs, shape=r_gu.shape, dtype=tf.float64)
     d_gu = tf.sqrt(tf.add(tf.square(r_gu), tf.square(h_uav)))
@@ -325,7 +319,7 @@ def gu_link_metrics(v, p, x_gn, ell, n_w):
     return gu_metrics(t=tf.reduce_sum(t), t_p=t_p, e=tf.reduce_sum(tf.multiply(t, pwr_cost(v[:-1], n_w))), e_p=e_p)
 
 
-def ub_link_metrics(v, p, ell, n_w):
+def ub_link_metrics(v, p, ell):
     r_ub = tf.norm(tf.subtract(p, tf.tile(tf.expand_dims(x_bs, axis=0), multiples=[p.shape[0], 1])), axis=1)
     h_ub = tf.constant(abs(h_uavs - h_bs), shape=r_ub.shape, dtype=tf.float64)
     d_ub = tf.sqrt(tf.add(tf.square(r_ub), tf.square(h_ub)))
@@ -355,29 +349,28 @@ def ub_link_metrics(v, p, ell, n_w):
     return ub_metrics(t=tf.reduce_sum(t), t_p=t_p, e=tf.reduce_sum(tf.multiply(t, pwr_cost(v[:-1], n_w))), e_p=e_p)
 
 
-def aggregated_service_metrics(u, x_uav, x_gn, ell, n_w):
+def aggregated_service_metrics(u, x_uav, x_gn, ell):
     u_idx = tf.where(tf.equal(x_uavs[u], x_uav))[0, 0]
     v_gu, p_gu = gu_subtrajectory(u, u_idx, x_gn).values()
-    t_gu, t_p_gu, e_gu, e_p_gu = gu_link_metrics(v_gu, p_gu, x_gn, ell, n_w)
+    t_gu, t_p_gu, e_gu, e_p_gu = gu_link_metrics(v_gu, p_gu, x_gn, ell)
 
     u_idx = tf.where(tf.equal(x_uavs[u], p_gu[-1]))[0, 0]
 
     v_ub, p_ub = ub_subtrajectory(u, u_idx).values()
-    t_ub, t_p_ub, e_ub, e_p_ub = ub_link_metrics(v_ub, p_ub, ell, n_w)
+    t_ub, t_p_ub, e_ub, e_p_ub = ub_link_metrics(v_ub, p_ub, ell)
 
     return service_metrics(u=u, t=t_gu + t_p_gu + t_ub + t_p_ub, e=e_gu + e_p_gu + e_ub + e_p_ub, x=p_ub[-1])
 
 
 # noinspection PyTypeChecker
-def evaluate(n_w):
+def evaluate():
     for data_len in data_lens:
         env = Environment()
-        ch_wait_times, trx_wait_times, wait_times, serv_times, serv_enrgs = [], [], [], [], []
+        wait_times, serv_times, serv_enrgs = [], [], []
 
         env.process(arrivals(
             env, tf.Variable([x_uavs[u, 0, :] for u in range(num_uavs)], dtype=tf.float64),
-            [Resource(env) for _ in range(n_c)], {_u: [Resource(env) for _ in range(n_xu)] for _u in range(num_uavs)},
-            n, data_len, arr_rates[data_len], ch_wait_times, trx_wait_times, wait_times, serv_times, serv_enrgs, n_w))
+            [Resource(env) for _ in range(n_c)], n, data_len, arr_rates[data_len], wait_times, serv_times, serv_enrgs))
 
         env.run()
 
@@ -389,18 +382,14 @@ def evaluate(n_w):
 
         print('[DEBUG] CIRCLEEvaluation evaluate: '
               f'Payload Size = {data_len / 1e6} Mb | '
-              f'Average Wait Delay (Channel) = {np.mean(ch_wait_times)} seconds.')
+              f'Average Wait Delay = {np.mean(wait_times)} seconds.')
 
         print('[DEBUG] CIRCLEEvaluation evaluate: '
-              f'Payload Size = {data_len / 1e6} Mb | '
-              f'Average Wait Delay (Transceiver) = {np.mean(trx_wait_times)} seconds.')
-
-        print('[DEBUG] CIRCLEEvaluation evaluate: '
-              f'{num_uavs} UAV-relays | M/G/{n_c} and M/G/{n_xu} | '
+              f'{num_uavs} UAV-relays | M/G/{n_c} queuing at the data channels | '
               f'Payload Length = [{data_len / 1e6}] Mb | P_avg = {p_avg / 1e3} kW | '
               f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(wait_times, serv_times))} seconds.\n')
 
 
 # Run Trigger
 if __name__ == '__main__':
-    evaluate(num_workers)
+    evaluate()

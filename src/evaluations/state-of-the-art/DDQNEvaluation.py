@@ -152,8 +152,8 @@ elif depl_env == 'suburban':
 else:
     n_c, k1, k2, z1, z2, arrival_rates = 10, 1.0, np.log(100) / 90.0, 9.61, 0.16, arrival_rates_h
 
-bw, n_xu = 20e6, 1
-bw_, num_req = bw / n_c, 1000
+bw = 20e6
+bw_, num_req = bw / n_c, 10000
 s_0, al, anl, kp, ra_conf, ra_tol = linear((5e6 * 40) / bw_), 2.0, 2.8, 0.2, 10, 1e-10
 
 """
@@ -174,37 +174,25 @@ def evaluate_power_consumption():
         (p_2 * (((1 + ((vel ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((vel ** 2) / (2 * (v_0 ** 2)))) ** 0.5)
 
 
-def gn_request(env, num, chs, trxs, serv_idx, ch_w_times, trx_w_times, w_times, serv_times):
+def gn_request(env, num, chs, w_times, serv_times):
     """
-    Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | GN request
+    Simpy queueing model: GN request
     """
-    arrival_time = env.now
+    arr_time = env.now
     k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
 
     with chs[k].request() as req:
         yield req
-        ch_time = env.now
-        ch_w_times.append(ch_time - arrival_time)
-
-        trxs_ = trxs[serv_idx]
-        x = np.argmin([max([0, len(_x.put_queue) + len(_x.users)]) for _x in trxs_])
-
-        with trxs_[x].request() as req_:
-            yield req_
-            trx_time = env.now
-            trx_w_times.append(trx_time - ch_time)
-            w_times.append(trx_time - arrival_time)
-            yield env.timeout(serv_times[num])
+        w_times.append(env.now - arr_time)
+        yield env.timeout(serv_times[num])
 
 
-def arrivals(env, chs, trxs, n_r, arr, serv_idx, ch_w_times, trx_w_times, w_times, serv_times):
+def arrivals(env, chs, n_r, arr, w_times, serv_times):
     """
-    Simpy queueing model: Nodes with multiple transceivers (1, 2, and 3 UAVs) | Poisson arrivals
+    Simpy queueing model: Poisson arrivals
     """
     for num in range(n_r):
-        env.process(gn_request(env, num, chs, trxs, serv_idx,
-                               ch_w_times, trx_w_times, w_times, serv_times))
-
+        env.process(gn_request(env, num, chs, w_times, serv_times))
         yield env.timeout(-np.log(np.random.random_sample()) / arr)
 
 
@@ -355,7 +343,7 @@ Core operations
 """
 
 
-def multiple_uav_relays(payload_sizes, gn_alts, gn_coords, num_workers):
+def multiple_uav_relays(payload_sizes, gn_alts, gn_coords):
     gu_delays = {k: {_k: {} for _k in v.keys()} for k, v in uav_positions.items()}
 
     gu_xy_distances = {k: {_k: tf.norm(tf.subtract(gn_coords[_k] * scaling_factor, _v * scaling_factor), axis=1)
@@ -376,13 +364,13 @@ def multiple_uav_relays(payload_sizes, gn_alts, gn_coords, num_workers):
         for _k, a_v in v.items():
             dists, angles = gu_distances[k][_k], gu_angles[k][_k]
             gu_delays[k][_k] = lperf.evaluate(_k, len(v.keys()) - 1, dists, angles,
-                                              payload_sizes, num_workers).aggregated_average_delay
+                                              payload_sizes, number_of_workers).aggregated_average_delay
 
     return gu_delays
 
 
-def evaluate(num_workers):
-    delays = multiple_uav_relays(data_payload_sizes, gn_heights, gn_positions, num_workers)
+def evaluate():
+    delays = multiple_uav_relays(data_payload_sizes, gn_heights, gn_positions)
 
     delays_mod = {p: {k: np.random.permutation(
         np.repeat([v[_k][p] for _k in v.keys()], num_req)) for k, v in delays.items()} for p in data_payload_sizes}
@@ -391,28 +379,20 @@ def evaluate(num_workers):
         p_len = p / 1e6
         totals = {_u: 0.0 for _u in range(n_uavs)}
         services, waits = {_u: 0.0 for _u in range(n_uavs)}, {_u: 0.0 for _u in range(n_uavs)}
-        ch_waits, trx_waits = {_u: 0.0 for _u in range(n_uavs)}, {_u: 0.0 for _u in range(n_uavs)}
 
         for _k, _v in v.items():
-            _waits, _ch_waits, _trx_waits, e = [], [], [], Environment()
+            _waits, e = [], Environment()
 
-            e.process(arrivals(e, [Resource(e) for _ in range(n_c)],
-                               {_u: [Resource(e) for _ in range(n_xu)] for _u in range(n_uavs)},
-                               len(_v), arrival_rates[p], _k, _ch_waits, _trx_waits, _waits, _v))
+            e.process(arrivals(e, [Resource(e) for _ in range(n_c)], len(_v), arrival_rates[p], _waits, _v))
 
             e.run()
 
             services[_k] = np.mean(_v)
             waits[_k] = np.mean(_waits)
-            ch_waits[_k] = np.mean(_ch_waits)
-            trx_waits[_k] = np.mean(_trx_waits)
             totals[_k] = services[_k] + waits[_k]
 
         print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
-              f'Average Wait Time (Channel) = {np.mean([_ for _ in ch_waits.values()])} seconds.')
-
-        print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
-              f'Average Wait Time (Transceiver) = {np.mean([_ for _ in trx_waits.values()])} seconds.')
+              f'Average Wait Time = {np.mean([_ for _ in waits.values()])} seconds.')
 
         print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
               f'Average Communication Service Time = {np.mean([_ for _ in services.values()])} seconds.')
@@ -425,4 +405,4 @@ def evaluate(num_workers):
 
 # Run Trigger
 if __name__ == '__main__':
-    evaluate(number_of_workers)
+    evaluate()

@@ -62,6 +62,12 @@ DEPLOYMENT_ENVIRONMENT = 'rural'  # 'rural', 'urban', 'suburban'
 # The radius of the circular cell under evaluation ($a$) in meters
 CELL_RADIUS = 1e3
 
+# The smallest required distance between two nodes (UAV/GN) along the circumference of a specific radius level in m
+MIN_CIRC_DISTANCE = 25.0
+
+# The number of radii "levels" needed for discretization of comm state space $G_{R}+1$ or K_{R}+1$ or $N_{\text{sp}}$
+RADII_LEVELS = 25
+
 ''' UAV mobility power consumption model '''
 
 # The mean rotor-induced velocity ($v_{0}$) in m/s
@@ -188,12 +194,6 @@ HCSO_VELOCITY_SCALING_FACTOR = 1.0
 
 # The number of waypoints to be interpolated between any two given points in the generated $M$-segment trajectories
 INTERPOLATION_FACTOR = 2
-
-# The smallest required distance between two nodes (UAV/GN) along the circumference of a specific radius level in m
-MIN_CIRC_DISTANCE = 25.0
-
-# The number of radii "levels" needed for discretization of comm state space $G_{R}+1$ or K_{R}+1$ or $N_{\text{sp}}$
-RADII_LEVELS = 25
 
 """
 Node Deployments
