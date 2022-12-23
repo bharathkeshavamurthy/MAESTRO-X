@@ -387,7 +387,7 @@ def evaluate():
 
         print('[DEBUG] CIRCLEEvaluation evaluate: '
               f'{num_uavs} UAV-relays | M/G/{n_c} queuing at the data channels | '
-              f'Payload Length = [{data_len / 1e6}] Mb | P_avg = {p_avg / 1e3} kW | '
+              f'Payload Size = {data_len / 1e6} Mb | UAV Power Consumption = {p_avg / 1e3} kW | '
               f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(wait_times, serv_times))} seconds.\n')
 
 

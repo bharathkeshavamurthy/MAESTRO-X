@@ -435,8 +435,8 @@ def calculate_adapted_throughput(d, phi, r_star_los, r_star_nlos):
     Rate-adapted throughput
     """
     with ThreadPoolExecutor(max_workers=num_workers) as executor:
-        executor.submit(evaluate_los_throughput, d, phi, r_star_los)
         executor.submit(evaluate_nlos_throughput, d, r_star_nlos)
+        executor.submit(evaluate_los_throughput, d, phi, r_star_los)
 
 
 max_power = evaluate_power_consumption(MAX_UAV_VELOCITY)
@@ -620,7 +620,7 @@ def competitive_swarm_optimization(initial_uav_pos, terminal_uav_pos,
 
 # noinspection PyUnusedLocal
 def hierarchical_competitive_swarm_optimization(initial_uav_position, terminal_uav_position,
-                                                ground_node_position, optimal_trajectories):
+                                                ground_node_position, optimal_trajectories, optimal_velocities):
     i, f_hat = 0, tf.Variable(0.0, dtype=tf.float64)
     p_star, u_star, v_star, w_star = None, None, None, None
 
@@ -710,6 +710,7 @@ def hierarchical_competitive_swarm_optimization(initial_uav_position, terminal_u
 
         m *= m_ip
 
+    tf.compat.v1.assign(optimal_velocities, v_star, validate_shape=True, use_locking=True)
     tf.compat.v1.assign(optimal_trajectories, p_star, validate_shape=True, use_locking=True)
 
 
@@ -734,12 +735,17 @@ if __name__ == '__main__':
                 o_trajs = tf.Variable(tf.zeros(shape=[INTERPOLATION_FACTOR * MAXIMUM_TRAJECTORY_SEGMENTS, 2],
                                                dtype=tf.float64), dtype=tf.float64)
 
-                exxeggutor.submit(hierarchical_competitive_swarm_optimization, x_init, x_final, x_gn, o_trajs)
+                o_velocities = tf.Variable(tf.zeros(shape=[INTERPOLATION_FACTOR * MAXIMUM_TRAJECTORY_SEGMENTS, ],
+                                                    dtype=tf.float64), dtype=tf.float64)
+
+                exxeggutor.submit(hierarchical_competitive_swarm_optimization,
+                                  x_init, x_final, x_gn, o_trajs, o_velocities)  # HCSO call for each comm state-action
 
                 tf.io.write_file(f'{output_dir}{seq_num}.log',
                                  tf.strings.format('{}\n{}\n{}',
                                                    (tf.constant(str(comm_state), dtype=tf.string),
                                                     tf.constant(str(comm_action), dtype=tf.string),
+                                                    tf.constant(str(o_velocities), dtype=tf.string),
                                                     tf.constant(str(o_trajs), dtype=tf.string))), name=f'{h_alpha}')
 
     print('[INFO] MAESTROTrajectoryDesign main: MAESTRO Trajectory Design has been completed - '

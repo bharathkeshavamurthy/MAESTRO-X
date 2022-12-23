@@ -86,7 +86,7 @@ Utilities
 """
 
 
-def log_outputs(identifier, data_payload_size, power_const, wait_states, wait_actions,
+def log_outputs(identifier, dual_value, data_payload_size, power_const, wait_states, wait_actions,
                 comm_states, comm_actions, comm_delays, energy_values, bs_delays, bs_energies, uav_delays,
                 uav_energies, optimal_trajs, optimal_velos, relay_statuses, optimal_wait_policy, optimal_comm_policy):
     """
@@ -94,10 +94,11 @@ def log_outputs(identifier, data_payload_size, power_const, wait_states, wait_ac
     """
     pwr_const = int(power_const)
     pl_size = int(data_payload_size / 1e6)
-    file = f'{OUTPUT_DIR}{int(pl_size)}-{pwr_const}.log'
+    file = f'{OUTPUT_DIR}{pl_size}-{pwr_const}.log'
 
     tf.io.write_file(file, tf.strings.format('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}',
                                              (tf.constant(str(identifier), dtype=tf.string),
+                                              tf.constant(str(dual_value), dtype=tf.string),
                                               tf.constant(str(power_const), dtype=tf.string),
                                               tf.constant(str(data_payload_size), dtype=tf.string),
                                               tf.constant(str(bs_delays.numpy()), dtype=tf.string),

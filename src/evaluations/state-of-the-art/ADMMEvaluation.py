@@ -51,9 +51,9 @@ np.random.seed(6)
 pi, num_uavs = np.pi, 3
 utip, v0, p1, p2, p3 = 200.0, 7.2, 580.65, 790.6715, 0.0073
 depl_env, rf, le_l, le_m, le_h = 'rural', num_uavs, 1, 10, 100
+alpha_los, alpha_nlos, beta_los, beta_nlos = 2.0, 2.8, 1e-3, 1e-4
 rho, sigma_mul, sigma_alpha, tmax_csca, lmax_admm = 3.0, 0.1, 0.1, 10, 10
 v_min, v_max, arr_rates_r = 0.0, 55.0, {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
-alpha_los, alpha_nlos, beta_los, beta_nlos, z1, z2 = 2.0, 2.8, 1e-3, 1e-4, 9.61, 0.16
 radius, num_slots, num_levels, min_dist, bs_ht, uav_ht, gn_ht = 1e3, 10000, 25, 25.0, 80.0, 200.0, 0.0
 data_len, p_avg = [1e6, 10e6, 100e6][0], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[0]
 max_iters, eps_abs, eps_rel, warm_start, verbose, csca_conf, csca_tol = int(1e6), 1e-6, 1e-6, True, True, 5, 1e-5
@@ -403,7 +403,7 @@ def evaluate():
 
     print('[DEBUG] ADMMEvaluation evaluate: '
           f'{num_uavs} UAV-relays | M/G/{n_c} queuing at the data channels | '
-          f'Payload Length = [{data_len / 1e6}] Mb | P_avg = {p_avg / 1e3} kW | '
+          f'Payload Size = {data_len / 1e6} Mb | UAV Power Consumption = {p_avg / 1e3} kW | '
           f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(w_times, serv_times))} seconds.')
 
 

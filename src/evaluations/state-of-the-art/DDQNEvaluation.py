@@ -299,8 +299,8 @@ class LinkPerformance(object):
 
     def __calculate_adapted_throughput(self, d, phi, r_los, r_nlos, num_workers):
         with ThreadPoolExecutor(max_workers=num_workers) as executor:
-            executor.submit(self.__evaluate_los_throughput, d, phi, r_los)
             executor.submit(self.__evaluate_nlos_throughput, d, r_nlos)
+            executor.submit(self.__evaluate_los_throughput, d, phi, r_los)
 
     def __average_throughputs(self, d_s, phi_s, num_workers):
         r_los_s = tf.Variable(tf.zeros(shape=d_s.shape, dtype=tf.float64), dtype=tf.float64)
@@ -382,7 +382,7 @@ def evaluate():
         np.repeat([v[_k][p] for _k in v.keys()], num_req)) for k, v in delays.items()} for p in data_payload_sizes}
 
     for p, v in delays_mod.items():
-        p_len = p / 1e6
+        p_size = p / 1e6
         totals = {_u: 0.0 for _u in range(n_uavs)}
         services, waits = {_u: 0.0 for _u in range(n_uavs)}, {_u: 0.0 for _u in range(n_uavs)}
 
@@ -397,15 +397,15 @@ def evaluate():
             waits[_k] = np.mean(_waits)
             totals[_k] = services[_k] + waits[_k]
 
-        print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
+        print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_size} Mb | '
               f'Average Wait Time = {np.mean([_ for _ in waits.values()])} seconds.')
 
-        print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_len} Mb | '
+        print(f'[DEBUG] DDQNEvaluation evaluate: Payload Size = {p_size} Mb | '
               f'Average Communication Service Time = {np.mean([_ for _ in services.values()])} seconds.')
 
         print('[INFO] DDQNEvaluation evaluate: '
-              f'[{n_uavs}] UAV Relays | Payload Length = {p_len} Mb | '
-              f'UAV Power Consumption Constraint = {evaluate_power_consumption() / 1e3} kW | '
+              f'[{n_uavs}] UAV Relays | Payload Size = {p_size} Mb | '
+              f'UAV Power Consumption = {evaluate_power_consumption() / 1e3} kW | '
               f'Average Total Service Delay (Wait + Comm) = {np.mean([_ for _ in totals.values()])} seconds.\n')
 
 

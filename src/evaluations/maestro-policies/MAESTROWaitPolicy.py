@@ -27,7 +27,7 @@ warnings.filterwarnings("ignore", category=DeprecationWarning)
 """
 Configurations-I: Plotly API settings
 """
-plotly.tools.set_credentials_file(username='bkeshav1', api_key='PUYaTVhV1Ok04I07S4lU')
+plotly.tools.set_credentials_file(username='bkeshav1', api_key='BCvYNi3LNNXgfpDGEpo0')
 
 """
 Configurations-II: Simulation parameters
@@ -42,7 +42,7 @@ th_us = np.linspace(0, 315.0, th_num, dtype=np.float64)
 r_us = np.linspace(a_o, a - a_o, r_num, dtype=np.float64)
 arr_rates_r = {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
 utip, v0, p1, p2, p3, v_min, v_max = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0
-p_avgs, th_c_num = np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64), 1000
+p_avgs, th_c_num = np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64), int(1e4)
 
 depl_env, le_l, le_m, le_h = 'rural', 1, 10, 100
 arr_rates_l = {_k: _v for _k, _v in arr_rates_r.items()}
