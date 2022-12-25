@@ -17,6 +17,7 @@ Configurations-I: Tensorflow logging | XLA-JIT enhancement
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 os.environ['TF_XLA_FLAGS'] = '--tf_xla_auto_jit=2 --tf_xla_cpu_global_jit ~/workspace/repos/MAESTRO-X/MAESTRO.py'
 
+import re
 import sys
 import uuid
 import warnings
@@ -578,8 +579,9 @@ class MAESTRO(object):
             args = []
 
             with open(traj_file, 'r') as file:
-                args.append(tf.convert_to_tensor(file.readline().strip(), dtype=tf.string))
-                [args.append(tf.convert_to_tensor(line.strip(), dtype=tf.float64)) for line in file.readlines()]
+                for line in file.readlines():
+                    # noinspection RegExpUnnecessaryNonCapturingGroup
+                    args.append(tf.convert_to_tensor(re.findall(r'[-+]?(?:\d*\.*\d+)', line.strip()), dtype=tf.float64))
 
             file_v_star, file_p_star = args[2:]
             read_trajs.append((file_p_star, file_v_star))

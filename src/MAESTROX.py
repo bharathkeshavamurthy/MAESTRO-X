@@ -32,6 +32,7 @@ Configurations-I: Tensorflow logging
 """
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+import re
 import uuid
 import ntplib
 import plotly
@@ -701,10 +702,9 @@ channel_map = {ch_id: {'wait': [], 'serv': []} for ch_id in channel_ids}
 
 try:
     with open(policy_file, 'r') as file:
-        args.append(tf.convert_to_tensor(file.readline().strip(), dtype=tf.string))
-
         for line in file.readlines():
-            args.append(tf.convert_to_tensor(line.strip(), dtype=tf.float64))
+            # noinspection RegExpUnnecessaryNonCapturingGroup
+            args.append(tf.convert_to_tensor(re.findall(r'[-+]?(?:\d*\.*\d+)', line.strip()), dtype=tf.float64))
 
 except Exception as e:
     print(f'[ERROR] MAESTRO-X: Exception caught while parsing {policy_file}: {tb.print_tb(e.__traceback__)}.')
