@@ -704,7 +704,7 @@ try:
     with open(policy_file, 'r') as file:
         for line in file.readlines():
             # noinspection RegExpUnnecessaryNonCapturingGroup
-            args.append(tf.convert_to_tensor(re.findall(r'[-+]?(?:\d*\.*\d+)', line.strip()), dtype=tf.float64))
+            args.append(tf.strings.to_number(re.findall(r'[-+]?(?:\d*\.*\d+)', line.strip()), tf.float64))
 
 except Exception as e:
     print(f'[ERROR] MAESTRO-X: Exception caught while parsing {policy_file}: {tb.print_tb(e.__traceback__)}.')

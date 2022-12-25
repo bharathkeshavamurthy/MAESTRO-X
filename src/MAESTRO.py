@@ -581,7 +581,7 @@ class MAESTRO(object):
             with open(traj_file, 'r') as file:
                 for line in file.readlines():
                     # noinspection RegExpUnnecessaryNonCapturingGroup
-                    args.append(tf.convert_to_tensor(re.findall(r'[-+]?(?:\d*\.*\d+)', line.strip()), dtype=tf.float64))
+                    args.append(tf.string.to_number(re.findall(r'[-+]?(?:\d*\.*\d+)', line.strip()), tf.float64))
 
             file_v_star, file_p_star = args[2:]
             read_trajs.append((file_p_star, file_v_star))
