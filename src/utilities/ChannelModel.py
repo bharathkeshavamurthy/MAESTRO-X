@@ -41,7 +41,7 @@ BASE_STATION_HEIGHT = 80.0
 UAV_HEIGHT = 200.0
 
 # The number of radius levels ($r$) in the cell under analysis
-NUMBER_OF_RADIUS_LEVELS = 10000
+NUMBER_OF_RADIUS_LEVELS = int(1e4)
 
 # The radius of the circular cell under evaluation ($a$) in meters
 CELL_RADIUS = 1e3

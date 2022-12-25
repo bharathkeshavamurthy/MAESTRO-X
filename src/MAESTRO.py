@@ -93,8 +93,8 @@ def log_outputs(identifier, dual_value, data_payload_size, power_const, wait_sta
     Log outputs
     """
     pwr_const = int(power_const)
-    pl_size = int(data_payload_size / 1e6)
-    file = f'{OUTPUT_DIR}{pl_size}-{pwr_const}.log'
+    dpl_size = int(data_payload_size / 1e6)
+    file = f'{OUTPUT_DIR}{dpl_size}-{pwr_const}.log'
 
     tf.io.write_file(file, tf.strings.format('{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}\n{}',
                                              (tf.constant(str(identifier), dtype=tf.string),
@@ -146,6 +146,12 @@ class MAESTRO(object):
     # The radius of the circular cell under evaluation ($a$) in meters
     CELL_RADIUS = 1e3
 
+    # The number of radii needed for discretization of comm state space $G_{R}+1$ or K_{R}+1$ or $N_{\text{sp}}$
+    RADII_LEVELS = 25
+
+    # The smallest required distance between two nodes (UAV/GN) along the circumference of a specific radius level in m
+    MIN_CIRC_DISTANCE = 25.0
+
     ''' UAV mobility power consumption model '''
 
     # The mean rotor-induced velocity ($v_{0}$) in m/s
@@ -169,6 +175,9 @@ class MAESTRO(object):
     # The thrust-to-weight ratio in the rotary-wing UAV motion model ($\kappa_{\text{UAV}}{\triangleq}\frac{T}{W}$
     THRUST_TO_WEIGHT_RATIO = 1.0
 
+    # The number of UAV radial velocity "levels" needed for discretization of the waiting action space $R_{\text{sp}}$
+    VELOCITY_LEVELS = 25
+
     ''' Channel model '''
 
     # The additional NLoS attenuation factor ($\kappa$)
@@ -176,9 +185,6 @@ class MAESTRO(object):
 
     # The path-loss exponent for Line of Sight (LoS) links ($\alpha$)
     LoS_PATH_LOSS_EXPONENT = 2.0
-
-    # The total FCC-allocated bandwidth for this application ($W$) in Hz
-    TOTAL_BANDWIDTH = 20e6
 
     # The path-loss exponent for Non-Line of Sight (NLoS) links ($\tilde{\alpha}$)
     NLoS_PATH_LOSS_EXPONENT = 2.8
@@ -188,10 +194,13 @@ class MAESTRO(object):
     '''
     # The number of data channels ($N_{C}$) in this deployment
     if DEPLOYMENT_ENVIRONMENT == 'rural':
+        TOTAL_BANDWIDTH = 10e6
         NUMBER_OF_CHANNELS = 2  # Verizon rural: 2x 5-MHz LTE-A
     elif DEPLOYMENT_ENVIRONMENT == 'urban':
-        NUMBER_OF_CHANNELS = 10  # Verizon NYC: 10x 5-MHz LTE-A
+        TOTAL_BANDWIDTH = 40e6
+        NUMBER_OF_CHANNELS = 8  # Verizon NYC: 10x 5-MHz LTE-A
     else:
+        TOTAL_BANDWIDTH = 20e6
         NUMBER_OF_CHANNELS = 4  # Verizon suburban: 4x 5-MHz LTE-A
 
     # The bandwidth available per orthogonal data channel ($B$) in Hz
@@ -241,42 +250,39 @@ class MAESTRO(object):
     # The maximum number of trajectory segments allowed in the HCSO solution ($M_{\text{max}}$)
     MAX_TRAJECTORY_SEGMENTS = 64
 
-    # The tolerance value for the bisection method to find the optimal value of $Z$ for rate adaptation
-    BISECTION_METHOD_TOLERANCE = 1e-10
-
-    # The number of radii needed for discretization of comm state space $G_{R}+1$ or K_{R}+1$ or $N_{\text{sp}}$
-    RADII_LEVELS = 25
-
-    # The convergence confidence level for the bisection method to find the optimal value of $Z$ for rate adaptation
-    BISECTION_CONVERGENCE_CONFIDENCE = 10
-
-    # The smallest required distance between two nodes (UAV/GN) along the circumference of a specific radius level in m
-    MIN_CIRC_DISTANCE = 25.0
-
-    # The number of waypoints to be interpolated between any two given points in the generated $M$-segment trajectories
-    INTERPOLATION_FACTOR = 2
-
-    # The number of UAV radial velocity "levels" needed for discretization of the waiting action space $R_{\text{sp}}$
-    VELOCITY_LEVELS = 25
-
-    # The initial dual variable step-size in the projected sub-gradient ascent algorithm ($\rho_{0}$)
-    INITIAL_DUAL_VARIABLE_STEP_SIZE = 0.1
-
-    # The dual variable convergence threshold in the projected sub-gradient ascent algorithm ($\epsilon_{DI}$)
-    DUAL_CONVERGENCE_THRESHOLD = 1e-3
-
-    # The primal feasibility threshold in the projected sub-gradient ascent algorithm ($\epsilon_{PF}$)
-    PRIMAL_FEASIBILITY_THRESHOLD = 1e-3
-
-    # The complementary slackness threshold in the projected sub-gradient ascent algorithm ($\epsilon_{CS}$)
-    COMPLEMENTARY_SLACKNESS_THRESHOLD = 0.1
-
     # The termination threshold for the SMDP Value Iteration (VITER) algorithm ($\delta$), i.e.,
     #   terminate if $\max_{s{\in}\mathcal{S}} H(s) - \min(x_{s{\in}\mathcal{S}} H(s)) < \delta$
     VITER_TERMINATION_THRESHOLD = 1e-3
 
+    # The initial dual variable step-size in the projected sub-gradient ascent algorithm ($\rho_{0}$)
+    INITIAL_DUAL_VARIABLE_STEP_SIZE = 0.1
+
+    # The primal feasibility threshold in the projected sub-gradient ascent algorithm ($\epsilon_{PF}$)
+    PRIMAL_FEASIBILITY_THRESHOLD = 1e-3
+
+    # The tolerance value for the bisection method to find the optimal value of $Z$ for rate adaptation
+    BISECTION_METHOD_TOLERANCE = 1e-10
+
+    # The complementary slackness threshold in the projected sub-gradient ascent algorithm ($\epsilon_{CS}$)
+    COMPLEMENTARY_SLACKNESS_THRESHOLD = 0.1
+
+    # The dual variable convergence threshold in the projected sub-gradient ascent algorithm ($\epsilon_{DI}$)
+    DUAL_CONVERGENCE_THRESHOLD = 1e-3
+
     # A namedtuple constituting all the relevant penalty metrics involved in the CSO/HCSO cost function evaluation
     PENALTIES_CAPSULE = namedtuple('penalties_capsule', ['t_p_1', 't_p_2', 'e_p_1', 'e_p_2'])
+
+    # The convergence confidence level for the bisection method to find the optimal value of $Z$ for rate adaptation
+    BISECTION_CONVERGENCE_CONFIDENCE = 10
+
+    # The convergence confidence level for the SMDP-VI and PSGA algorithms to find the optimal MAESTRO control policy
+    CONVERGENCE_CONFIDENCE = 10
+
+    # The learning rate for the angular velocity determination aspect of Lagrangian minimization in the waiting states
+    ANGULAR_VELOCITY_LEARNING_RATE = 1e-10
+
+    # The number of waypoints to be interpolated between any two given points in the generated $M$-segment trajectories
+    INTERPOLATION_FACTOR = 2
 
     """
     DTOs
@@ -296,13 +302,18 @@ class MAESTRO(object):
     Algorithms
     """
 
-    def __init__(self, id__, average_power_constraint, packet_length, evaluators__):
+    def __init__(self, id__, average_power_constraint, payload_size, num_workers, evaluators__):
         self.id = id__
-        self.packet_length = packet_length  # The packet length constraint for this "run"
+        self.dual_var = 0.0
+        self.num_workers = num_workers
+        self.payload_size = payload_size  # The data payload size for this "run"
         self.average_power_constraint = average_power_constraint  # The average power constraint for this "run"
 
+        self.ARRIVAL_RATE = self.ARRIVAL_RATES[self.payload_size]
+        self.WAITING_STATE_INTERVAL = self.WAITING_STATE_INTERVAL[self.payload_size]
+
         print(f'[INFO] [{self.id}] MAESTRO Initialization: Bringing things up - '
-              f'L = {self.packet_length / 1e6} Mb | P_avg = {self.average_power_constraint / 1e3} kW.')
+              f'L = {self.payload_size / 1e6} Mb | P_avg = {self.average_power_constraint / 1e3} kW.')
 
         radii = np.linspace(start=0.0, stop=self.CELL_RADIUS, num=self.RADII_LEVELS)
         vels = np.linspace(start=-self.MAX_UAV_VELOCITY, stop=self.MAX_UAV_VELOCITY, num=self.VELOCITY_LEVELS)
@@ -431,7 +442,8 @@ class MAESTRO(object):
         tf.compat.v1.assign(r_star_nlos, gamma_star, validate_shape=True, use_locking=True)
 
     def __calculate_adapted_throughput(self, d, phi, r_star_los, r_star_nlos):
-        with ThreadPoolExecutor(max_workers=1024) as executor:
+        n_w = self.num_workers
+        with ThreadPoolExecutor(max_workers=n_w) as executor:
             executor.submit(self.__evaluate_nlos_throughput, d, r_star_nlos)
             executor.submit(self.__evaluate_los_throughput, d, phi, r_star_los)
 
@@ -449,6 +461,7 @@ class MAESTRO(object):
         return spl_v(np.linspace(0, m - 1, res_multiplier * m, dtype=np.float64))
 
     def __penalties(self, p__, v__, x_g, res_multiplier):
+        n_w = self.num_workers
         min_power = self.__evaluate_power_consumption(22.0)
         z_1, z_2 = self.PROPAGATION_ENVIRONMENT_PARAMETER_1, self.PROPAGATION_ENVIRONMENT_PARAMETER_2
 
@@ -472,7 +485,7 @@ class MAESTRO(object):
         r_los_gu = tf.Variable(tf.zeros(shape=r_gu.shape, dtype=tf.float64), dtype=tf.float64)
         r_nlos_gu = tf.Variable(tf.zeros(shape=r_gu.shape, dtype=tf.float64), dtype=tf.float64)
 
-        with ThreadPoolExecutor(max_workers=1024) as executor:
+        with ThreadPoolExecutor(max_workers=n_w) as executor:
             for i__, (d_gu__, phi_gu__) in enumerate(zip(d_gu, phi_gu)):
                 executor.submit(self.__calculate_adapted_throughput, d_gu__, phi_gu__, r_los_gu[i__], r_nlos_gu[i__])
 
@@ -483,7 +496,7 @@ class MAESTRO(object):
 
         r_bar_gu = tf.add(tf.multiply(p_los_gu, r_los_gu), tf.multiply(p_nlos_gu, r_nlos_gu))
 
-        h_1 = self.packet_length - tf.reduce_sum(tf.multiply(t[:midpoint], r_bar_gu))
+        h_1 = self.payload_size - tf.reduce_sum(tf.multiply(t[:midpoint], r_bar_gu))
 
         t_p_1 = (lambda: 0.0, lambda: (h_1 / r_bar_gu[-1]) if r_bar_gu[-1] != 0.0 else np.inf)[h_1.numpy() > 0.0]()
         e_p_1 = (lambda: 0.0, lambda: (min_power * t_p_1))[h_1.numpy() > 0.0]()
@@ -499,7 +512,7 @@ class MAESTRO(object):
         r_los_ub = tf.Variable(tf.zeros(shape=r_ub.shape, dtype=tf.float64), dtype=tf.float64)
         r_nlos_ub = tf.Variable(tf.zeros(shape=r_ub.shape, dtype=tf.float64), dtype=tf.float64)
 
-        with ThreadPoolExecutor(max_workers=1024) as executor:
+        with ThreadPoolExecutor(max_workers=n_w) as executor:
             for i__, (d_ub__, phi_ub__) in enumerate(zip(d_ub, phi_ub)):
                 executor.submit(self.__calculate_adapted_throughput, d_ub__, phi_ub__, r_los_ub[i__], r_nlos_ub[i__])
 
@@ -510,7 +523,7 @@ class MAESTRO(object):
 
         r_bar_ub = tf.add(tf.multiply(p_los_ub, r_los_ub), tf.multiply(p_nlos_ub, r_nlos_ub))
 
-        h_2 = self.packet_length - tf.reduce_sum(tf.multiply(t[midpoint:], r_bar_ub[:-1]))
+        h_2 = self.payload_size - tf.reduce_sum(tf.multiply(t[midpoint:], r_bar_ub[:-1]))
 
         t_p_2 = (lambda: 0.0, lambda: (h_2 / r_bar_ub[-1]) if r_bar_ub[-1] != 0.0 else np.inf)[h_2.numpy() > 0.0]()
         e_p_2 = (lambda: 0.0, lambda: (min_power * t_p_2))[h_2.numpy() > 0.0]()
@@ -519,8 +532,9 @@ class MAESTRO(object):
 
     @tf.function
     @tf.autograph.experimental.do_not_convert
-    def __power_cost(self, v, num_workers=1024):
-        return tf.map_fn(self.__evaluate_power_consumption, v, parallel_iterations=num_workers)
+    def __power_cost(self, v):
+        n_w = self.num_workers
+        return tf.map_fn(self.__evaluate_power_consumption, v, parallel_iterations=n_w)
 
     def __calculate_comm_cost(self, p, v, nu, x_g, f_hat, e_hat=None, t_hat=None):
         p_average, interp = self.average_power_constraint, self.INTERPOLATION_FACTOR
@@ -545,6 +559,7 @@ class MAESTRO(object):
     def __hierarchical_competitive_swarm_optimization(self, state_index, action_index,
                                                       initial_uav_position, terminal_uav_position,
                                                       dual_variable, gn_position, lagrangian, energy, time_duration):
+        n_w = self.num_workers
         i__, j__ = state_index, action_index
         p_star, u_star, v_star, w_star = None, None, None, None
         i, nu, f_hat = 0, dual_variable, tf.Variable(0.0, dtype=tf.float64)
@@ -555,7 +570,7 @@ class MAESTRO(object):
         e_usage, delta = tf.Variable(0.0, dtype=tf.float64), tf.Variable(0.0, dtype=tf.float64)
 
         z_1, z_2 = self.PROPAGATION_ENVIRONMENT_PARAMETER_1, self.PROPAGATION_ENVIRONMENT_PARAMETER_2
-        a, v_levels, p_len = self.CELL_RADIUS, self.CSO_VELOCITY_DISCRETIZATION_LEVELS, self.packet_length
+        a, v_levels, p_len = self.CELL_RADIUS, self.CSO_VELOCITY_DISCRETIZATION_LEVELS, self.payload_size
         v_min, v_max, eps = self.CSO_MINIMUM_VELOCITY_VALUE, self.MAX_UAV_VELOCITY, self.HCSO_VELOCITY_SCALING_FACTOR
         n, m_old, m_ip = self.INITIAL_NUMBER_OF_PARTICLES, self.INITIAL_TRAJECTORY_SEGMENTS, self.INTERPOLATION_FACTOR
 
@@ -652,7 +667,7 @@ class MAESTRO(object):
 
         r_los_gb, r_nlos_gb = tf.Variable(0.0, dtype=tf.float64), tf.Variable(0.0, dtype=tf.float64)
 
-        with ThreadPoolExecutor(max_workers=1024) as executor:
+        with ThreadPoolExecutor(max_workers=n_w) as executor:
             executor.submit(self.__calculate_adapted_throughput, d_gb, phi_gb, r_los_gb, r_nlos_gb)
             executor.submit(self.__calculate_comm_cost, p_star, v_star, nu, x_g, f_hat, e_usage, delta)
 
@@ -707,10 +722,11 @@ class MAESTRO(object):
         tf.compat.v1.assign(e_wait_star[i__, j__], p_mob_star * delta_0, validate_shape=True, use_locking=True)
 
     def __optimize_waiting_states(self, nu, s_wait, a_wait, l_wait_star, e_wait_star, t_wait_star):
+        n_w = self.num_workers
+
         try:
 
-            with ThreadPoolExecutor(max_workers=1024) as executor:
-
+            with ThreadPoolExecutor(max_workers=n_w) as executor:
                 for i__, r_u in enumerate(s_wait):
                     for j__, v_r in enumerate(a_wait):
                         executor.submit(self.__angular_velocity_optimization,
@@ -721,10 +737,11 @@ class MAESTRO(object):
                   f'during waiting state optimization - {traceback.print_tb(e__.__traceback__)}.')
 
     def __optimize_comm_states(self, nu, s_comm, a_comm, l_comm_star, e_comm_star, t_comm_star):
+        n_w = self.num_workers
+
         try:
 
-            with ThreadPoolExecutor(max_workers=1024) as executor:
-
+            with ThreadPoolExecutor(max_workers=n_w) as executor:
                 for i__, s in enumerate(s_comm):
                     for j__, x_u in enumerate(a_comm):
                         x_u = tf.constant([x_u.numpy()], dtype=tf.float64)
@@ -872,6 +889,7 @@ class MAESTRO(object):
         return (1 - p_e) / (2 - p_e)
 
     def __value_iteration(self, dual_variable):
+        n_w = self.num_workers
         i, nu, delta = 0, dual_variable, self.VITER_TERMINATION_THRESHOLD
 
         try:
@@ -910,7 +928,7 @@ class MAESTRO(object):
 
             # Optimization (lagrangian cost [via optimal action] determination per state)
 
-            with ThreadPoolExecutor(max_workers=1024) as executor:
+            with ThreadPoolExecutor(max_workers=n_w) as executor:
 
                 executor.submit(self.__optimize_waiting_states,
                                 nu, s_wait, a_wait, l_wait_star, e_wait_star, t_wait_star)
@@ -923,7 +941,7 @@ class MAESTRO(object):
             converged, conf, conf_th = False, 0, self.CONVERGENCE_CONFIDENCE
 
             while not converged or conf < conf_th:
-                with ThreadPoolExecutor(max_workers=1024) as executor:
+                with ThreadPoolExecutor(max_workers=n_w) as executor:
                     executor.submit(self.__smdp_waiting_viter_updates, l_wait_star,
                                     e_wait_star, t_wait_star, v_i_wait, v_i_comm, h_i_wait,
                                     e_i_wait, e_i_comm, t_i_wait, t_i_comm, s_wait, s_comm, a_wait, o_star)
@@ -973,10 +991,10 @@ class MAESTRO(object):
                 conf += 1 if converged else -conf
                 k += 1
 
-            self.o_star, self.u_star, self.u_star_indices = o_star_k, u_star_k, u_star_indices_k
+            self.dual_var, self.o_star, self.u_star, self.u_star_indices = nu_k, o_star_k, u_star_k, u_star_indices_k
 
             # noinspection PyTypeChecker
-            log_outputs(self.id, self.packet_length, self.average_power_constraint, self.waiting_states,
+            log_outputs(self.id, self.dual_var, self.payload_size, self.average_power_constraint, self.waiting_states,
                         self.waiting_actions, self.comm_states, self.comm_actions, self.comm_delays,
                         self.energy_vals, self.bs_delays, self.bs_nrg_vals, self.uav_delays,
                         self.uav_nrg_vals, self.optimal_trajectories,
@@ -993,8 +1011,8 @@ class MAESTRO(object):
                   f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
-def launch_evaluation(id_, power_constraint, packet_len_constraint, evaluators_):
-    with MAESTRO(id_, power_constraint, packet_len_constraint, evaluators_) as evaluator__:
+def launch_evaluation(id_, power_constraint, data_pl_size, evaluators_):
+    with MAESTRO(id_, power_constraint, data_pl_size, NUMBER_OF_WORKERS, evaluators_) as evaluator__:
         evaluator__.projected_subgradient_ascent()
 
 
@@ -1005,10 +1023,10 @@ if __name__ == '__main__':
 
     evaluators = list()
 
-    with ThreadPoolExecutor(max_workers=num_workers) as exxeggutor:
-        for packet_len in DATA_PAYLOAD_SIZES:
+    with ThreadPoolExecutor(max_workers=NUMBER_OF_WORKERS) as exxeggutor:
+        for pl_size in DATA_PAYLOAD_SIZES:
             for avg_power in AVG_POWER_CONSTRAINTS:
-                exxeggutor.submit(launch_evaluation, uuid.uuid4(), avg_power, packet_len, evaluators)
+                exxeggutor.submit(launch_evaluation, uuid.uuid4(), avg_power, pl_size, evaluators)
 
     print('[INFO] [Main Thread] MAESTRO main: Completed the evaluation of the proposed SMDP formulation '
           'for adaptive multi-scale scheduling and trajectory optimization of power-constrained UAV relays for '

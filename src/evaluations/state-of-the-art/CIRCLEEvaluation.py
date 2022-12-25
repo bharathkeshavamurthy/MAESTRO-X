@@ -65,9 +65,9 @@ Configurations-II: Simulation parameters
 
 np.random.seed(6)
 num_levels, min_dist = 25, 25.0
+pi, num_uavs, n_w = np.pi, 3, 1024
 a_los, a_nlos, kappa = 2.0, 2.8, 0.2
-pi, bw, num_uavs, n_w = np.pi, 20e6, 3, 1024
-a, m, n, omi, num_workers = 1e3, 32, 10000, 0.8, 1024
+a, m, n, omi, num_workers = 1e3, 32, int(1e4), 0.8, 1024
 depl_env, rf, le_l, le_m, le_h = 'rural', num_uavs, 1, 10, 100
 data_lens, arr_rates_r = [1e6, 10e6, 100e6], {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
 utip, v0, p1, p2, p3, v_min, v_max, v_num = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 25
@@ -79,17 +79,16 @@ arr_rates_h = {_k: _v * rf * le_h for _k, _v in arr_rates_r.items()}
 
 '''
 TODO: Change k_1, k_2, z_1, and z_2 according to the deployment environment
-TODO: Change n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
+TODO: Change bw and n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
 '''
-
 if depl_env == 'rural':
-    n_c, arr_rates = 2, arr_rates_l
+    bw, n_c, arr_rates = 10e6, 2, arr_rates_l
     k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 elif depl_env == 'suburban':
-    n_c, arr_rates = 4, arr_rates_m
+    bw, n_c, arr_rates = 20e6, 4, arr_rates_m
     k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 else:
-    n_c, arr_rates = 10, arr_rates_h
+    bw, n_c, arr_rates = 40e6, 8, arr_rates_h
     k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 
 bw_ = bw / n_c

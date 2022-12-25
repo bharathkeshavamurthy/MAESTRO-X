@@ -46,7 +46,6 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 Configurations-I: Simulation parameters
 """
 
-bw = 20e6
 np.random.seed(6)
 pi, num_uavs = np.pi, 3
 utip, v0, p1, p2, p3 = 200.0, 7.2, 580.65, 790.6715, 0.0073
@@ -54,7 +53,7 @@ depl_env, rf, le_l, le_m, le_h = 'rural', num_uavs, 1, 10, 100
 alpha_los, alpha_nlos, beta_los, beta_nlos = 2.0, 2.8, 1e-3, 1e-4
 rho, sigma_mul, sigma_alpha, tmax_csca, lmax_admm = 3.0, 0.1, 0.1, 10, 10
 v_min, v_max, arr_rates_r = 0.0, 55.0, {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
-radius, num_slots, num_levels, min_dist, bs_ht, uav_ht, gn_ht = 1e3, 10000, 25, 25.0, 80.0, 200.0, 0.0
+radius, num_slots, num_levels, min_dist, bs_ht, uav_ht, gn_ht = 1e3, int(1e4), 25, 25.0, 80.0, 200.0, 0.0
 data_len, p_avg = [1e6, 10e6, 100e6][0], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[0]
 max_iters, eps_abs, eps_rel, warm_start, verbose, csca_conf, csca_tol = int(1e6), 1e-6, 1e-6, True, True, 5, 1e-5
 
@@ -64,15 +63,14 @@ arr_rates_h = {_k: _v * rf * le_h for _k, _v in arr_rates_r.items()}
 
 '''
 TODO: Change z1 and z2 according to the deployment environment
-TODO: Change n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
+TODO: Change bw and n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
 '''
-
 if depl_env == 'rural':
-    n_c, z1, z2, arr_rates = 2, 9.61, 0.16, arr_rates_l
+    bw, n_c, z1, z2, arr_rates = 10e6, 2, 9.61, 0.16, arr_rates_l
 elif depl_env == 'suburban':
-    n_c, z1, z2, arr_rates = 4, 9.61, 0.16, arr_rates_m
+    bw, n_c, z1, z2, arr_rates = 20e6, 4, 9.61, 0.16, arr_rates_m
 else:
-    n_c, z1, z2, arr_rates = 10, 9.61, 0.16, arr_rates_h
+    bw, n_c, z1, z2, arr_rates = 40e6, 8, 9.61, 0.16, arr_rates_h
 
 bw_ = bw / n_c
 snr_0 = linear((5e6 * 40) / bw_)

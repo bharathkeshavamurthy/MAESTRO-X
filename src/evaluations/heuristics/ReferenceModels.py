@@ -75,7 +75,7 @@ RADII_LEVELS = 25
 ''' Traffic generation model '''
 
 # The total number of GNs (implies communication requests) in the cell under analysis
-NUMBER_OF_REQUESTS = 10000
+NUMBER_OF_REQUESTS = int(1e4)
 
 # The rate multiplication factor for a BS-deployment
 BS_RATE_FACTOR = 3  # red (1x <=> 1-UAV) | green (2x <=> 2-UAVs) | blue (3x <=> 3-UAVs)
@@ -147,18 +147,18 @@ NLoS_ATTENUATION_CONSTANT = 0.2
 # The path-loss exponent for Line of Sight (LoS) links ($\alpha$)
 LoS_PATH_LOSS_EXPONENT = 2.0
 
-# The total FCC-allocated bandwidth for this application ($W$) in Hz
-TOTAL_BANDWIDTH = 20e6
-
 '''
-TODO: Change this number-of-data-channels parameter according to the deployment environment (Verizon LTE/LTE-A/5G)
+TODO: Change total_bandwidth and number_of_channels according to the deployment environment (Verizon LTE/LTE-A/5G)
 '''
 # The number of data channels in this deployment ($N_{C}$)
 if DEPLOYMENT_ENVIRONMENT == 'rural':
+    TOTAL_BANDWIDTH = 10e6
     NUMBER_OF_CHANNELS = 2  # Verizon rural: 2x 5-MHz LTE-A
 elif DEPLOYMENT_ENVIRONMENT == 'urban':
-    NUMBER_OF_CHANNELS = 10  # Verizon NYC: 10x 5-MHz LTE-A
+    TOTAL_BANDWIDTH = 40e6
+    NUMBER_OF_CHANNELS = 8  # Verizon urban: 8x 5-MHz LTE-A
 else:
+    TOTAL_BANDWIDTH = 20e6
     NUMBER_OF_CHANNELS = 4  # Verizon suburban: 4x 5-MHz LTE-A
 
 # The bandwidth available per orthogonal data channel ($B$) in Hz

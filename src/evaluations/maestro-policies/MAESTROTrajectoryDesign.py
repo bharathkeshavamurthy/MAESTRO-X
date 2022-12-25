@@ -99,21 +99,21 @@ NLoS_ATTENUATION_CONSTANT = 0.2
 # The path-loss exponent for Line of Sight (LoS) links ($\alpha$)
 LoS_PATH_LOSS_EXPONENT = 2.0
 
-# The total FCC-allocated bandwidth for this application ($W$) in Hz
-TOTAL_BANDWIDTH = 20e6
-
 # The path-loss exponent for Non-Line of Sight (NLoS) links ($\tilde{\alpha}$)
 NLoS_PATH_LOSS_EXPONENT = 2.8
 
 '''
-TODO: Change this number-of-data-channels parameter according to the deployment environment (Verizon LTE/LTE-A/5G)
+TODO: Change total_bandwidth and number_of_channels according to the deployment environment (Verizon LTE/LTE-A/5G)
 '''
 # The number of data channels in this deployment ($N_{C}$)
 if DEPLOYMENT_ENVIRONMENT == 'rural':
+    TOTAL_BANDWIDTH = 10e6
     NUMBER_OF_CHANNELS = 2  # Verizon rural: 2x 5-MHz LTE-A
 elif DEPLOYMENT_ENVIRONMENT == 'urban':
-    NUMBER_OF_CHANNELS = 10  # Verizon NYC: 10x 5-MHz LTE-A
+    TOTAL_BANDWIDTH = 40e6
+    NUMBER_OF_CHANNELS = 8  # Verizon urban: 8x 5-MHz LTE-A
 else:
+    TOTAL_BANDWIDTH = 20e6
     NUMBER_OF_CHANNELS = 4  # Verizon suburban: 4x 5-MHz LTE-A
 
 # The bandwidth available per orthogonal data channel ($B$) in Hz
@@ -145,7 +145,7 @@ REFERENCE_SNR_AT_1_METER = linear((5e6 * 40) / CHANNEL_BANDWIDTH)
 ''' Algorithmic model '''
 
 # The HCSO metric in our re-formulation (new $\alpha$)
-HCSO_METRIC_ALPHA = 0.1  # 0.0, 0.1, 0.2, ..., 1.0
+HCSO_METRIC_ALPHA = 0.2  # 0.0, 0.1, 0.2, ..., 1.0
 
 # The data payload size for this evaluation ($L$) in bits
 DATA_PAYLOAD_SIZE = 10e6  # 1e6, 10e6, 100e6
@@ -229,8 +229,8 @@ class RandomTrajectoriesGeneration(object):
     Random trajectories generation
     """
 
-    def __init__(self, source, destination, radial_bounds, angular_bounds, swarm_size,
-                 segment_size, interpolation_num):
+    def __init__(self, source, destination,
+                 radial_bounds, angular_bounds, swarm_size, segment_size, interpolation_num):
         self.x_0, self.x_m = source, destination
         self.r_bounds, self.theta_bounds = radial_bounds, angular_bounds
         self.n, self.m, self.m_ip = swarm_size, segment_size, interpolation_num
@@ -252,7 +252,7 @@ class RandomTrajectoriesGeneration(object):
         n, m = self.n, self.m
         trajs = tf.Variable(tf.zeros(shape=(int(n / 2), m, 2), dtype=tf.float64), dtype=tf.float64)
 
-        with ThreadPoolExecutor(max_workers=1024) as executor:
+        with ThreadPoolExecutor(max_workers=NUMBER_OF_WORKERS) as executor:
             [executor.submit(self.__generate, trajs[i, :]) for i in range(int(n / 2))]
         return trajs
 
@@ -272,7 +272,7 @@ class RandomTrajectoriesGeneration(object):
         n, m_post = self.n, (self.m_ip * (self.m + 2))
         opt_trajs = tf.Variable(tf.zeros(shape=[int(n / 2), m_post, 2], dtype=tf.float64), dtype=tf.float64)
 
-        with ThreadPoolExecutor(max_workers=1024) as executor:
+        with ThreadPoolExecutor(max_workers=NUMBER_OF_WORKERS) as executor:
             [executor.submit(self.__optimize, trajs[i, :], opt_trajs[i, :]) for i in range(int(n / 2))]
         return opt_trajs
 
@@ -287,8 +287,8 @@ class DeterministicTrajectoriesGeneration(object):
     Deterministic trajectories generation
     """
 
-    def __init__(self, source, destination, radial_bounds,
-                 angular_bounds, swarm_size, segment_size, interpolation_num):
+    def __init__(self, source, destination,
+                 radial_bounds, angular_bounds, swarm_size, segment_size, interpolation_num):
         self.x_0, self.x_m = source, destination
         self.r_bounds, self.theta_bounds = radial_bounds, angular_bounds
         self.n, self.m, self.m_ip = swarm_size, segment_size, interpolation_num
@@ -484,7 +484,7 @@ def penalties(p__, v__, x_g, res_multiplier):
     r_los_gu = tf.Variable(tf.zeros(shape=r_gu.shape, dtype=tf.float64), dtype=tf.float64)
     r_nlos_gu = tf.Variable(tf.zeros(shape=r_gu.shape, dtype=tf.float64), dtype=tf.float64)
 
-    with ThreadPoolExecutor(max_workers=1024) as executor:
+    with ThreadPoolExecutor(max_workers=NUMBER_OF_WORKERS) as executor:
         for i__, (d_gu__, phi_gu__) in enumerate(zip(d_gu, phi_gu)):
             executor.submit(calculate_adapted_throughput, d_gu__, phi_gu__, r_los_gu[i__], r_nlos_gu[i__])
 
@@ -509,7 +509,7 @@ def penalties(p__, v__, x_g, res_multiplier):
     r_los_ub = tf.Variable(tf.zeros(shape=r_ub.shape, dtype=tf.float64), dtype=tf.float64)
     r_nlos_ub = tf.Variable(tf.zeros(shape=r_ub.shape, dtype=tf.float64), dtype=tf.float64)
 
-    with ThreadPoolExecutor(max_workers=1024) as executor:
+    with ThreadPoolExecutor(max_workers=NUMBER_OF_WORKERS) as executor:
         for i__, (d_ub__, phi_ub__) in enumerate(zip(d_ub, phi_ub)):
             executor.submit(calculate_adapted_throughput, d_ub__, phi_ub__, r_los_ub[i__], r_nlos_ub[i__])
 

@@ -15,7 +15,7 @@ from simpy import *
 Configurations: Simulation parameters
 """
 np.random.seed(6)
-number_of_requests, number_of_queues, arrival_rate = 1000, 4, 5 / 60
+number_of_requests, number_of_queues, arrival_rate = int(1e4), 4, 5 / 60
 wait_times, service_times = [], [156.7514 for _ in range(number_of_requests)]
 
 """

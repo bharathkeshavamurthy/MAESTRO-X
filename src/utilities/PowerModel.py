@@ -74,4 +74,4 @@ fig = dict(data=[plot_trace_mobility, plot_trace_communication], layout=plot_lay
 fig_url = plotly.plotly.plot(fig, filename='UAV_Mobility_Power_Analysis', auto_open=False)
 
 print('[INFO] UAVPowerModel main: The plot illustrating the relationship between the '
-      'flying velocity and the associated power consumption of a rotary-wing UAV is given here - {fig_url}.')
+      f'flying velocity and the associated power consumption of a rotary-wing UAV is given here - {fig_url}.')

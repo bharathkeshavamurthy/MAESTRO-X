@@ -148,18 +148,16 @@ Configurations-IV: Channel model
 
 '''
 TODO: Change k1, k2, z1, and z2 according to the deployment environment
-TODO: Change n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
+TODO: Change bw and n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
 '''
-
 if depl_env == 'rural':
-    n_c, k1, k2, z1, z2, arrival_rates = 2, 1.0, np.log(100) / 90.0, 9.61, 0.16, arrival_rates_l
+    bw, n_c, k1, k2, z1, z2, arrival_rates = 10e6, 2, 1.0, np.log(100) / 90.0, 9.61, 0.16, arrival_rates_l
 elif depl_env == 'suburban':
-    n_c, k1, k2, z1, z2, arrival_rates = 4, 1.0, np.log(100) / 90.0, 9.61, 0.16, arrival_rates_m
+    bw, n_c, k1, k2, z1, z2, arrival_rates = 20e6, 4, 1.0, np.log(100) / 90.0, 9.61, 0.16, arrival_rates_m
 else:
-    n_c, k1, k2, z1, z2, arrival_rates = 10, 1.0, np.log(100) / 90.0, 9.61, 0.16, arrival_rates_h
+    bw, n_c, k1, k2, z1, z2, arrival_rates = 40e6, 8, 1.0, np.log(100) / 90.0, 9.61, 0.16, arrival_rates_h
 
-bw = 20e6
-bw_, num_req = bw / n_c, 10000
+bw_, num_req = bw / n_c, int(1e4)
 s_0, al, anl, kp, ra_conf, ra_tol = linear((5e6 * 40) / bw_), 2.0, 2.8, 0.2, 10, 1e-10
 
 """

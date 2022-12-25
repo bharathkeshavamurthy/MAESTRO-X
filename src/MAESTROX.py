@@ -53,8 +53,8 @@ Configurations-II: Simulation parameters
 
 pi = np.pi
 np.random.seed(6)
+a, n_u, n_r, n_w = 1e3, 3, int(1e4), 1024
 agent_id = '1221d753-0bd1-477f-96c6-10899725037b'
-a, bw, n_u, n_r, n_w = 1e3, 20e6, 3, int(1e4), 1024
 depl_env, rf, le_l, le_m, le_h = 'rural', n_u, 1, 10, 100
 ip_dir, op_dir = '../logs/policies/', '../logs/evaluations/'
 decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
@@ -71,17 +71,16 @@ arr_rates_h = {_k: _v * rf * le_h for _k, _v in arr_rates_r.items()}
 
 '''
 TODO: Change k_1, k_2, z_1, and z_2 according to the deployment environment
-TODO: Change n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
+TODO: Change bw and n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
 '''
-
 if depl_env == 'rural':
-    n_c, arr_rates = 2, arr_rates_l
+    bw, n_c, arr_rates = 10e6, 2, arr_rates_l
     k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 elif depl_env == 'suburban':
-    n_c, arr_rates = 4, arr_rates_m
+    bw, n_c, arr_rates = 20e6, 4, arr_rates_m
     k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 else:
-    n_c, arr_rates = 10, arr_rates_h
+    bw, n_c, arr_rates = 40e6, 8, arr_rates_h
     k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 
 bw_ = bw / n_c

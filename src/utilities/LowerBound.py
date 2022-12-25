@@ -39,20 +39,19 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 Configurations-II: Simulation parameters
 """
 
-n_w, depl_env, bw, radius, num_levels, bs_ht, gn_ht = 1024, 'rural', 20e6, 1e3, int(1e4), 80.0, 0.0
+n_w, depl_env, radius, num_levels, bs_ht, gn_ht = 1024, 'rural', 1e3, int(1e4), 80.0, 0.0
 payload_size, alpha, alpha_, kappa, ra_tol, ra_conf = [1e6, 10e6, 100e6][0], 2.0, 2.8, 0.2, 1e-10, 10
 
 '''
 TODO: Change k_1, k_2, z_1, and z_2 according to the deployment environment
-TODO: Change n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
+TODO: Change bw and n_c according to the deployment environment (Verizon LTE/LTE-A/5G)
 '''
-
 if depl_env == 'rural':
-    n_c, k_1, k_2, z_1, z_2 = 2, 1.0, np.log(100) / 90.0, 9.61, 0.16
+    bw, n_c, k_1, k_2, z_1, z_2 = 10e6, 2, 1.0, np.log(100) / 90.0, 9.61, 0.16
 elif depl_env == 'suburban':
-    n_c, k_1, k_2, z_1, z_2 = 4, 1.0, np.log(100) / 90.0, 9.61, 0.16
+    bw, n_c, k_1, k_2, z_1, z_2 = 20e6, 4, 1.0, np.log(100) / 90.0, 9.61, 0.16
 else:
-    n_c, k_1, k_2, z_1, z_2 = 10, 1.0, np.log(100) / 90.0, 9.61, 0.16
+    bw, n_c, k_1, k_2, z_1, z_2 = 40e6, 8, 1.0, np.log(100) / 90.0, 9.61, 0.16
 
 bw_ = bw / n_c
 snr_0 = linear((5e6 * 40) / bw_)

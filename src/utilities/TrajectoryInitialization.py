@@ -29,7 +29,7 @@ Configurations-II: Simulation parameters
 """
 pi = np.pi
 np.random.seed(6)
-a, m, m_ip, n = 1e3, 30, 2, 128
+a, m, m_ip, n = 1e3, 30, 2, 400
 output_dir = '../../logs/evaluations/'
 r_bounds, th_bounds = (-a, a), (0, 2 * pi)
 m_post, x_g, num_workers = (m + 2) * m_ip, tf.constant([[-570.0, 601.0]], dtype=tf.float64), 1024
