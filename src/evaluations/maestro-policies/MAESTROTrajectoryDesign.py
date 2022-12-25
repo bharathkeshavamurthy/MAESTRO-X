@@ -742,7 +742,7 @@ if __name__ == '__main__':
                                   x_init, x_final, x_gn, o_trajs, o_velocities)  # HCSO call for each comm state-action
 
                 tf.io.write_file(f'{output_dir}{seq_num}.log',
-                                 tf.strings.format('{}\n{}\n{}',
+                                 tf.strings.format('{}\n{}\n{}\n',
                                                    (tf.constant(str(comm_state), dtype=tf.string),
                                                     tf.constant(str(comm_action), dtype=tf.string),
                                                     tf.constant(str(o_velocities), dtype=tf.string),

@@ -57,6 +57,9 @@ Configurations-II: Global simulation parameters
 # The data payload sizes for this evaluation ($L$) in bits
 DATA_PAYLOAD_SIZES = [1e6, 10e6, 100e6]
 
+# The HCSO metrics in our re-formulation (new $\alpha$)
+HCSO_METRICS_ALPHA = np.arange(start=0.0, stop=1.1, step=0.1)
+
 # The max number of concurrent workers allowed in this evaluation
 NUMBER_OF_WORKERS = 1024
 
@@ -244,11 +247,8 @@ class MAESTRO(object):
 
     ''' Algorithmic model '''
 
-    # The HCSO metrics in our re-formulation (new $\alpha$)
-    HCSO_METRICS_ALPHA = np.arange(start=0.0, stop=1.1, step=0.1)
-
     # The maximum number of trajectory segments allowed in the HCSO solution ($M_{\text{max}}$)
-    MAX_TRAJECTORY_SEGMENTS = 64
+    MAX_TRAJECTORY_SEGMENTS = 32
 
     # The termination threshold for the SMDP Value Iteration (VITER) algorithm ($\delta$), i.e.,
     #   terminate if $\max_{s{\in}\mathcal{S}} H(s) - \min(x_{s{\in}\mathcal{S}} H(s)) < \delta$
@@ -278,11 +278,11 @@ class MAESTRO(object):
     # The convergence confidence level for the SMDP-VI and PSGA algorithms to find the optimal MAESTRO control policy
     CONVERGENCE_CONFIDENCE = 10
 
-    # The learning rate for the angular velocity determination aspect of Lagrangian minimization in the waiting states
-    ANGULAR_VELOCITY_LEARNING_RATE = 1e-10
-
     # The number of waypoints to be interpolated between any two given points in the generated $M$-segment trajectories
     INTERPOLATION_FACTOR = 2
+
+    # The termination threshold for angular velocity optimization (within Lagrangian minimization) in the waiting states
+    ANGULAR_VELOCITY_TERMINATION_THRESHOLD = 1e-10
 
     """
     DTOs
@@ -556,109 +556,51 @@ class MAESTRO(object):
             tf.compat.v1.assign(t_hat, t__, validate_shape=True, use_locking=True)
 
     # noinspection PyUnusedLocal
-    def __hierarchical_competitive_swarm_optimization(self, state_index, action_index,
-                                                      initial_uav_position, terminal_uav_position,
-                                                      dual_variable, gn_position, lagrangian, energy, time_duration):
-        n_w = self.num_workers
-        i__, j__ = state_index, action_index
-        p_star, u_star, v_star, w_star = None, None, None, None
-        i, nu, f_hat = 0, dual_variable, tf.Variable(0.0, dtype=tf.float64)
+    def __read_optimized_trajectories(self, state_index, action_index,
+                                      c_state, c_action, dual_variable, lagrangian, energy, time_duration):
+        nu, f_hat = dual_variable, tf.Variable(0.0, dtype=tf.float64)
+        i__, j__, a_num = state_index, action_index, self.comm_actions.shape[0]
+        n_w, p_size, h_b = self.num_workers, self.payload_size, self.BASE_STATION_HEIGHT
+        z_1, z_2 = self.PROPAGATION_ENVIRONMENT_PARAMETER_1, self.PROPAGATION_ENVIRONMENT_PARAMETER_2
 
         opt_traj, opt_velo = self.optimal_trajectories, self.optimal_velocities
         l_comm_star, e_comm_star, t_comm_star = lagrangian, energy, time_duration
         xi_s, delays, nrgs = self.relay_status, self.comm_delays, self.energy_vals
         e_usage, delta = tf.Variable(0.0, dtype=tf.float64), tf.Variable(0.0, dtype=tf.float64)
-
-        z_1, z_2 = self.PROPAGATION_ENVIRONMENT_PARAMETER_1, self.PROPAGATION_ENVIRONMENT_PARAMETER_2
-        a, v_levels, p_len = self.CELL_RADIUS, self.CSO_VELOCITY_DISCRETIZATION_LEVELS, self.payload_size
-        v_min, v_max, eps = self.CSO_MINIMUM_VELOCITY_VALUE, self.MAX_UAV_VELOCITY, self.HCSO_VELOCITY_SCALING_FACTOR
-        n, m_old, m_ip = self.INITIAL_NUMBER_OF_PARTICLES, self.INITIAL_TRAJECTORY_SEGMENTS, self.INTERPOLATION_FACTOR
-
         bs_delays, bs_nrgs, uav_delays, uav_nrgs = self.bs_delays, self.bs_nrg_vals, self.uav_delays, self.uav_nrg_vals
-        x_0, x_m, x_g, h_b = initial_uav_position, terminal_uav_position, gn_position, self.BASE_STATION_HEIGHT
 
-        zeta, m, m_max = self.HCSO_TRAJECTORY_SCALING_FACTOR, m_old, self.MAXIMUM_TRAJECTORY_SEGMENTS
+        # Read the trajectories (wps and vels) from the decoupled HCSO runs (for different h_alphas)
 
-        assert m_max > m and m_max >= m * self.HCSO_VALIDATION_MULTIPLIER
+        read_trajs = []
+        traj_files = [f'{INPUT_DIR[p_size]}{_h_a}/trajs/{(i__ * a_num) + j__ + 1}.log' for _h_a in HCSO_METRICS_ALPHA]
 
-        r_gen = RandomTrajectoriesGeneration(x_0, x_m, (-a, a), (0, 2 * np.pi), n, m_old, m_ip)
-        d_gen = DeterministicTrajectoriesGeneration(x_0, x_m, (-a, a), (0, 2 * np.pi), n, m_old, m_ip)
-        p, m = tf.concat([d_gen.generate_optimize(), r_gen.optimize(r_gen.generate())], axis=0), ((m + 2) * m_ip)
+        for traj_file in traj_files:
+            args = []
 
-        velocity_vals = np.linspace(v_min, v_max, v_levels)
-        v = tf.Variable(np.random.choice(velocity_vals, size=[n, m]))
-        w = tf.Variable(np.random.choice(velocity_vals, size=[n, m]))
-        u = tf.Variable(np.random.choice(velocity_vals, size=[n, m, 2]))
+            with open(traj_file, 'r') as file:
+                args.append(tf.convert_to_tensor(file.readline().strip(), dtype=tf.string))
+                [args.append(tf.convert_to_tensor(line.strip(), dtype=tf.float64)) for line in file.readlines()]
 
-        # HCSO while loop
-        while m <= m_max * m_ip:
-            p_star, u_star, v_star, w_star, f_star = self.__competitive_swarm_optimization(x_0, x_m, x_g,
-                                                                                           p, v, u, w, n, m, nu)
+            file_v_star, file_p_star = args[2:]
+            read_trajs.append((file_p_star, file_v_star))
 
-            n -= 20 * (i + 1)
-            i += 1
+        r_u, r_g, psi_gu = c_state
+        num_trajs = len(read_trajs)
+        f_hats = tf.Variable(tf.zeros(shape=[num_trajs, ]), dtype=tf.float64)
+        deltas = tf.Variable(tf.zeros(shape=[num_trajs, ]), dtype=tf.float64)
+        e_usages = tf.Variable(tf.zeros(shape=[num_trajs, ]), dtype=tf.float64)
+        x_g = tf.constant([r_g * np.cos(psi_gu), r_g * np.sin(psi_gu)], dtype=tf.float64)
 
-            indices = [_ for _ in range(m)]
+        # Pick the best trajectory (out of all h_alpha variations) as the one that minimizes the cost metric
 
-            # Trajectory particles
+        for traj_idx in range(num_trajs):
+            with ThreadPoolExecutor(max_workers=n_w) as executor:
+                p_star_, v_star_ = read_trajs[traj_idx]
+                executor.submit(self.__calculate_comm_cost, p_star_, v_star_,
+                                nu, x_g, f_hats[traj_idx], e_usages[traj_idx], deltas[traj_idx])
 
-            p_tilde = tf.tile(tf.expand_dims(
-                self.__interpolate_waypoints(indices, p_star, m_ip), axis=0), multiples=[n, 1, 1])
-
-            p, p_ = tf.Variable(tf.zeros(shape=p_tilde.shape, dtype=tf.float64), dtype=tf.float64), p_tilde[:, :-1, :]
-
-            u = tf.Variable(tf.zeros(shape=p_tilde.shape, dtype=tf.float64), dtype=tf.float64)
-
-            p_1, p_2 = tf.roll(p_tilde, shift=-1, axis=1)[:, :-1, :], tf.roll(p_tilde, shift=1, axis=1)[:, 1:, :]
-
-            scale = tf.expand_dims(tf.add(tf.square(tf.norm(tf.subtract(p_1, p_), axis=2)),
-                                          tf.multiply(zeta, tf.square(tf.norm(tf.subtract(p_2, p_), axis=2)))), axis=2)
-
-            scales, shape_p = tf.tile(scale, multiples=[1, 1, 2]), [n, (m_ip * m) - 1, 2]
-
-            scale_last = tf.expand_dims(tf.add(tf.square(tf.norm(p_tilde[:, -1, :], axis=1)),
-                                               tf.multiply(zeta, tf.square(tf.norm(tf.subtract(
-                                                   p_tilde[:, -2, :], p_tilde[:, -1, :]), axis=1)))), axis=1)
-
-            p_tilde_r = tf.random.normal(shape=shape_p,
-                                         stddev=tf.sqrt(scales),
-                                         mean=tf.zeros(shape=shape_p, dtype=tf.float64), dtype=tf.float64)
-
-            tf.compat.v1.assign(p[:, :-1, :],
-                                tf.add(p_tilde[:, :-1, :], p_tilde_r), validate_shape=True, use_locking=True)
-
-            rnorm_tensor = tf.random.normal(shape=[scale_last.shape[0], 2],
-                                            mean=tf.zeros(shape=[scale_last.shape[0], 2], dtype=tf.float64),
-                                            stddev=tf.tile(tf.sqrt(scale_last), multiples=[1, 2]), dtype=tf.float64)
-
-            tf.compat.v1.assign(p[:, -1, :],
-                                tf.add(p_tilde[:, -1, :], rnorm_tensor), validate_shape=True, use_locking=True)
-
-            tf.compat.v1.assign(u, tf.tile(tf.expand_dims(self.__interpolate_waypoints(
-                indices, u_star, m_ip), axis=0), multiples=[n, 1, 1]), validate_shape=True, use_locking=True)
-
-            # UAV velocity particles
-
-            shape_v = [n, m_ip * m]
-
-            v_tilde = tf.tile(tf.expand_dims(
-                self.__interpolate_velocities(indices, v_star, m_ip), axis=0), multiples=[n, 1])
-
-            v = tf.Variable(tf.zeros(shape=v_tilde.shape, dtype=tf.float64), dtype=tf.float64)
-            w = tf.Variable(tf.zeros(shape=v_tilde.shape, dtype=tf.float64), dtype=tf.float64)
-
-            v_tilde_r = tf.random.normal(dtype=tf.float64, shape=shape_v,
-                                         mean=tf.zeros(shape=shape_v, dtype=tf.float64),
-                                         stddev=tf.sqrt(tf.multiply(eps * ((v_max - v_min) ** 2),
-                                                                    tf.ones(shape=shape_v, dtype=tf.float64))))
-
-            tf.compat.v1.assign(v, tf.clip_by_value(
-                tf.add(v_tilde, v_tilde_r), v_min, v_max), validate_shape=True, use_locking=True)
-
-            tf.compat.v1.assign(w, tf.tile(tf.expand_dims(self.__interpolate_velocities(
-                indices, w_star, m_ip), axis=0), multiples=[n, 1]), validate_shape=False, use_locking=True)
-
-            m *= m_ip
+        min_traj_idx = tf.argmin(f_hats, axis=0)
+        p_star, v_star = read_trajs[min_traj_idx]
 
         # Lagrangian cost determination for scheduling (Direct BS or UAV relay?)
 
@@ -678,7 +620,7 @@ class MAESTRO(object):
 
         r_bar_gb = tf.add(tf.multiply(p_los_gb, r_los_gb), tf.multiply(p_nlos_gb, r_nlos_gb))
 
-        l_xi_0 = (p_len / r_bar_gb) if r_bar_gb != 0.0 else np.inf
+        l_xi_0 = (p_size / r_bar_gb) if r_bar_gb != 0.0 else np.inf
         l_xi_1, e_xi_1, t_xi_1 = f_hat.numpy(), e_usage.numpy(), delta.numpy()
         l__, e__, t__, xi__ = (l_xi_1, e_xi_1, t_xi_1, 1) if (l_xi_1 < l_xi_0) else (l_xi_0, 0.0, l_xi_0, 0)
 
@@ -743,13 +685,9 @@ class MAESTRO(object):
 
             with ThreadPoolExecutor(max_workers=n_w) as executor:
                 for i__, s in enumerate(s_comm):
-                    for j__, x_u in enumerate(a_comm):
-                        x_u = tf.constant([x_u.numpy()], dtype=tf.float64)
-                        x_0 = tf.constant([s[0].numpy()], dtype=tf.float64)
-                        x_g = tf.constant([s[1].numpy()], dtype=tf.float64)
-
-                        executor.submit(self.__hierarchical_competitive_swarm_optimization,
-                                        i__, j__, x_0, x_u, nu, x_g, l_comm_star, e_comm_star, t_comm_star)
+                    for j__, r_u in enumerate(a_comm):
+                        executor.submit(self.__read_optimized_trajectories,
+                                        i__, j__, s, r_u, nu, l_comm_star, e_comm_star, t_comm_star)
 
         except Exception as e__:
             print(f'[ERROR] [{self.id}] MAESTRO __optimize_comm_states: Exception caught '
@@ -777,9 +715,10 @@ class MAESTRO(object):
 
             mins_org = tf.reshape(tf.gather(s_wait, wait_indices), shape=[-1])
 
-            v_i_comm_remapped = tf.reshape(tf.reduce_sum(tf.map_fn(
-                lambda x: tf.gather(v_i_comm, tf.where(tf.equal(tf.norm(
-                    s_comm[:, 0], axis=1), x))), mins_org), axis=1), shape=[s_wait.shape[0], a_wait.shape[0]])
+            v_i_comm_remapped = tf.reshape(
+                tf.reduce_sum(tf.map_fn(lambda x: tf.gather(v_i_comm,
+                                                            tf.where(tf.equal(s_comm[:, 0], x))),
+                                        mins_org), axis=1), shape=[s_wait.shape[0], a_wait.shape[0]])
 
             _v_i_added = tf.add(l_wait_star,
                                 np.exp(-lambda__ * delta_0) * v_i_wait_remapped,
@@ -814,12 +753,10 @@ class MAESTRO(object):
             mins_org_min = tf.gather(s_wait, wait_indices_min)
 
             e_i_comm_remapped = tf.squeeze(tf.reduce_sum(
-                tf.map_fn(lambda x: tf.gather(e_i_comm, tf.where(tf.equal(
-                    tf.norm(s_comm[:, 0], axis=1), x))), mins_org_min), axis=1))
+                tf.map_fn(lambda x: tf.gather(e_i_comm, tf.where(tf.equal(s_comm[:, 0], x))), mins_org_min), axis=1))
 
             t_i_comm_remapped = tf.squeeze(tf.reduce_sum(
-                tf.map_fn(lambda x: tf.gather(t_i_comm, tf.where(tf.equal(
-                    tf.norm(s_comm[:, 0], axis=1), x))), mins_org_min), axis=1))
+                tf.map_fn(lambda x: tf.gather(t_i_comm, tf.where(tf.equal(s_comm[:, 0], x))), mins_org_min), axis=1))
 
             _e_i_added = tf.add(e_wait_star_remapped,
                                 np.exp(-lambda__ * delta_0) * e_i_wait_remapped,
@@ -844,8 +781,9 @@ class MAESTRO(object):
             v_i_1_comm = tf.constant(v_i_comm)
 
             _v_i_wait = tf.tile(tf.expand_dims(
-                tf.squeeze(tf.map_fn(lambda x: tf.gather(v_i_wait, tf.where(tf.equal(s_wait, x))),
-                                     tf.norm(a_comm, axis=1))), axis=0), multiples=[l_comm_star.shape[0], 1])
+                tf.squeeze(tf.map_fn(lambda x: tf.gather(v_i_wait,
+                                                         tf.where(tf.equal(s_wait, x))),
+                                     a_comm)), axis=0), multiples=[l_comm_star.shape[0], 1])
 
             _v_i_added = tf.add(l_comm_star, _v_i_wait)  # Transition only to the waiting state
 
