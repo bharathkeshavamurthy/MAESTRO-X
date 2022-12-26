@@ -556,7 +556,7 @@ def mobility_pwr(v):
     UAV mobility power consumption
     """
     return (p1 * (1 + ((3 * (v ** 2)) / (utip ** 2)))) + (p3 * (v ** 3)) + \
-        (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5)
+           (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5)
 
 
 def gn_request(req_id):
@@ -701,6 +701,7 @@ ground_node_map = {ground_node_ids[_i]: x_gns[_i] for _i in range(n_g)}
 channel_map = {ch_id: {'wait': [], 'serv': []} for ch_id in channel_ids}
 
 try:
+
     with open(policy_file, 'r') as file:
         for line in file.readlines():
             # noinspection RegExpUnnecessaryNonCapturingGroup
