@@ -328,7 +328,7 @@ def evaluate_power_consumption(uav_flying_velocity):
     p_1, p_2, p_3 = POWER_PROFILE_CONSTANT_1, POWER_PROFILE_CONSTANT_2, POWER_PROFILE_CONSTANT_3
 
     return (p_1 * (1 + ((3 * (v ** 2)) / (u_tip ** 2)))) + (p_3 * (v ** 3)) + \
-        (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5)
+           (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5)
 
 
 def fz(z_):
@@ -636,11 +636,9 @@ def hierarchical_competitive_swarm_optimization(initial_uav_position, terminal_u
 
     r_gen = RandomTrajectoriesGeneration(x_0, x_m, (-a, a), (0, 2 * np.pi), n, m_old, m_ip)
     d_gen = DeterministicTrajectoriesGeneration(x_0, x_m, (-a, a), (0, 2 * np.pi), n, m_old, m_ip)
-    p, m = tf.concat([d_gen.generate_optimize(), r_gen.optimize(r_gen.generate())], axis=0), ((m + 2) * m_ip)
+    p, m = tf.concat([d_gen.generate_optimize(), r_gen.optimize(r_gen.generate())], axis=0), (m + 2) * m_ip
 
-    m = ((m + 2) * m_ip)
     velocity_vals = np.linspace(v_min, v_max, v_levels)
-
     u = tf.Variable(np.random.choice(velocity_vals, size=[n, m, 2]))
     v = tf.Variable(np.random.choice(velocity_vals, size=[n, m]))
     w = tf.Variable(np.random.choice(velocity_vals, size=[n, m]))
