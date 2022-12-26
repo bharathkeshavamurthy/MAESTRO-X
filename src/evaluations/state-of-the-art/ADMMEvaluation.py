@@ -57,7 +57,7 @@ radius, num_slots, num_levels, min_dist, bs_ht, uav_ht, gn_ht = 1e3, int(1e4), 2
 data_len, p_avg = [1e6, 10e6, 100e6][0], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[0]
 max_iters, eps_abs, eps_rel, warm_start, verbose, csca_conf, csca_tol = int(1e6), 1e-6, 1e-6, True, True, 5, 1e-5
 
-arr_rates_l = {_k: _v * rf for _k, _v in arr_rates_r.items()}
+arr_rates_l = {_k: _v * rf * le_l for _k, _v in arr_rates_r.items()}
 arr_rates_m = {_k: _v * rf * le_m for _k, _v in arr_rates_r.items()}
 arr_rates_h = {_k: _v * rf * le_h for _k, _v in arr_rates_r.items()}
 

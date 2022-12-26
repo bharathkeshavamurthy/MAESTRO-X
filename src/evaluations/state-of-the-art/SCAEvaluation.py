@@ -67,7 +67,7 @@ max_iters, eps_abs, eps_rel, warm_start, verbose = int(1e6), 1e-6, 1e-6, True, T
 data_len, arr_rates_r = [1e6, 10e6, 100e6][0], {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
 utip, v0, p1, p2, p3, v_min, v_max, v_num = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0, 25
 
-arr_rates_l = {_k: _v * rf for _k, _v in arr_rates_r.items()}
+arr_rates_l = {_k: _v * rf * le_l for _k, _v in arr_rates_r.items()}
 arr_rates_m = {_k: _v * rf * le_m for _k, _v in arr_rates_r.items()}
 arr_rates_h = {_k: _v * rf * le_h for _k, _v in arr_rates_r.items()}
 

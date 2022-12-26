@@ -74,16 +74,19 @@ AVG_POWER_CONSTRAINTS = np.arange(start=1e3, stop=2.2e3, step=0.2e3)
 RAW_ARRIVAL_RATES = {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
 
 # Low congestion ($\Lambda'$): 1.0 Mb: 5-reqs/1-min | 10.0 Mb: 1-req/1-min | 100.0 Mb: 1-req/6-min
-LOW_ARRIVAL_RATES = {_k: _v for _k, _v in RAW_ARRIVAL_RATES.items()}
+LOAD_ESCALATION = 1
+LOW_ARRIVAL_RATES = {_k: _v * LOAD_ESCALATION for _k, _v in RAW_ARRIVAL_RATES.items()}
 
 # High congestion ($\Lambda'$): Load escalation factor * Arrival rates for the "low congestion" regime
-HIGH_ARRIVAL_RATES = {_k: _v * 100 for _k, _v in RAW_ARRIVAL_RATES.items()}
+LOAD_ESCALATION = 100
+HIGH_ARRIVAL_RATES = {_k: _v * LOAD_ESCALATION for _k, _v in RAW_ARRIVAL_RATES.items()}
 
 # The input directory in which the logs from the associated HCSO evaluations have been logged
 INPUT_DIR = {dp_size: f'../../../logs/policies/{int(dp_size / 1e6)}/' for dp_size in DATA_PAYLOAD_SIZES}
 
 # Moderate congestion ($\Lambda'$): Load escalation factor * Arrival rates for the "moderate congestion" regime
-MODERATE_ARRIVAL_RATES = {_k: _v * 10 for _k, _v in RAW_ARRIVAL_RATES.items()}
+LOAD_ESCALATION = 10
+MODERATE_ARRIVAL_RATES = {_k: _v * LOAD_ESCALATION for _k, _v in RAW_ARRIVAL_RATES.items()}
 
 """
 Utilities

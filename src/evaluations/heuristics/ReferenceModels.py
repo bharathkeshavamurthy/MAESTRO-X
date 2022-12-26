@@ -98,7 +98,8 @@ else:
 RAW_ARRIVAL_RATES = {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
 
 # Low congestion ($\Lambda'$): 1.0 Mb: 5-reqs/1-min | 10.0 Mb: 1-req/1-min | 100.0 Mb: 1-req/6-min
-LOW_ARRIVAL_RATES = {_k: _v * RATE_FACTOR for _k, _v in RAW_ARRIVAL_RATES.items()}
+LOAD_ESCALATION = 1
+LOW_ARRIVAL_RATES = {_k: _v * RATE_FACTOR * LOAD_ESCALATION for _k, _v in RAW_ARRIVAL_RATES.items()}
 
 # High congestion ($\Lambda'$): Load escalation factor * Arrival rates for the "low congestion" regime
 LOAD_ESCALATION = 100

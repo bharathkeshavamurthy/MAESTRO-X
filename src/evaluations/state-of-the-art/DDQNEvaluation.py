@@ -138,7 +138,7 @@ uav_positions = {0: uav_0_trajectory, 1: uav_1_trajectory, 2: uav_2_trajectory}
 Configurations-III: Traffic generation model
 """
 depl_env, rf, le_l, le_m, le_h = 'rural', n_uavs, 1, 10, 100
-arrival_rates_l = {_k: _v * rf for _k, _v in arrival_rates_r.items()}
+arrival_rates_l = {_k: _v * rf * le_l for _k, _v in arrival_rates_r.items()}
 arrival_rates_m = {_k: _v * rf * le_m for _k, _v in arrival_rates_r.items()}
 arrival_rates_h = {_k: _v * rf * le_h for _k, _v in arrival_rates_r.items()}
 

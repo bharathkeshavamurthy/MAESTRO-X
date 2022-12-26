@@ -66,7 +66,7 @@ u0, u1, u2, th_c_min, th_c_max, th_c_num = [0.0, 500.0], [400.0, -300.0], [-400.
 ntp_client, ntp_url, policy_file = ntplib.NTPClient(), 'pool.ntp.org', f'{ip_dir}{int(data_len / 1e6)}-{int(p_avg)}.log'
 
 arr_rates_r = {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
-arr_rates_l = {_k: _v * rf for _k, _v in arr_rates_r.items()}
+arr_rates_l = {_k: _v * rf * le_l for _k, _v in arr_rates_r.items()}
 arr_rates_m = {_k: _v * rf * le_m for _k, _v in arr_rates_r.items()}
 arr_rates_h = {_k: _v * rf * le_h for _k, _v in arr_rates_r.items()}
 
@@ -556,7 +556,7 @@ def mobility_pwr(v):
     UAV mobility power consumption
     """
     return (p1 * (1 + ((3 * (v ** 2)) / (utip ** 2)))) + (p3 * (v ** 3)) + \
-           (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5)
+        (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5)
 
 
 def gn_request(req_id):
