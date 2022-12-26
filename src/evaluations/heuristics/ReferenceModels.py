@@ -448,25 +448,28 @@ def evaluate_power_consumption(uav_flying_velocity):
         (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5)
 
 
-def gn_request(env, chs, w_times, serv_times):
+def gn_request(env, chs, w_times, s_times, serv_times):
     """
     Simpy queueing model: GN request
     """
     arr_time = env.now
+    gn_num = np.random.choice(gn_indices)
     k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
 
     with chs[k].request() as req:
         yield req
         w_times.append(env.now - arr_time)
-        yield env.timeout(serv_times[np.random.choice(gn_indices)])
+        s_times.append(serv_times[gn_num])
+        yield env.timeout(serv_times[gn_num])
 
 
-def arrivals(env, chs, n_r, arr, w_times, serv_times):
+def arrivals(env, chs, n_r, arr, w_times, s_times, serv_times):
     """
     Simpy queueing model: Poisson arrivals
     """
     for num in range(n_r):
-        env.process(gn_request(env, chs, w_times, serv_times))
+        env.process(gn_request(env, chs,
+                               w_times, s_times, serv_times))
         yield env.timeout(-np.log(np.random.random_sample()) / arr)
 
 
@@ -589,17 +592,17 @@ def simulate_ops():
     comm_delays_dict = bs_only()
 
     for payload_size, comm_delays_tensor in comm_delays_dict.items():
-        waiting_times, comm_delays, environment = [], comm_delays_tensor.numpy(), Environment()
+        waiting_times, service_times, comm_delays, environment = [], [], comm_delays_tensor.numpy(), Environment()
 
-        environment.process(arrivals(environment,
-                                     [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
-                                     NUMBER_OF_REQUESTS, ARRIVAL_RATES[payload_size], waiting_times, comm_delays))
+        environment.process(arrivals(environment, [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
+                                     NUMBER_OF_REQUESTS, ARRIVAL_RATES[payload_size],
+                                     waiting_times, service_times, comm_delays))
 
         environment.run()
 
         print('[DEBUG] ReferenceModels BS simulate_ops: '
               f'Payload Size = {payload_size / 1e6} Mb | '
-              f'Average Comm Delay = {np.mean(comm_delays)} seconds.')
+              f'Average Comm Delay = {np.mean(service_times)} seconds.')
 
         print('[DEBUG] ReferenceModels BS simulate_ops: '
               f'Payload Size = {payload_size / 1e6} Mb | '
@@ -608,24 +611,24 @@ def simulate_ops():
         print('[INFO] ReferenceModels BS simulate_ops: All requests served by BS | '
               f'No UAV Relay | M/G/{NUMBER_OF_CHANNELS} queuing at the data channels | '
               f'Payload Length = {payload_size / 1e6} Mb | UAV Power Consumption = N/A kW | '
-              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, comm_delays))} seconds.\n')
+              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, service_times))} seconds.\n')
 
     ''' HAP only '''
 
     comm_delays_dict = hap_only()
 
     for payload_size, comm_delays_tensor in comm_delays_dict.items():
-        waiting_times, comm_delays, environment = [], comm_delays_tensor.numpy(), Environment()
+        waiting_times, service_times, comm_delays, environment = [], [], comm_delays_tensor.numpy(), Environment()
 
-        environment.process(arrivals(environment,
-                                     [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
-                                     NUMBER_OF_REQUESTS, ARRIVAL_RATES[payload_size], waiting_times, comm_delays))
+        environment.process(arrivals(environment, [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
+                                     NUMBER_OF_REQUESTS, ARRIVAL_RATES[payload_size],
+                                     waiting_times, service_times, comm_delays))
 
         environment.run()
 
         print('[DEBUG] ReferenceModels HAP simulate_ops: '
               f'Payload Size = {payload_size / 1e6} Mb | '
-              f'Average Comm Delay = {np.mean(comm_delays)} seconds.')
+              f'Average Comm Delay = {np.mean(service_times)} seconds.')
 
         print('[DEBUG] ReferenceModels HAP simulate_ops: '
               f'Payload Size = {payload_size / 1e6} Mb | '
@@ -634,24 +637,24 @@ def simulate_ops():
         print('[INFO] ReferenceModels HAP simulate_ops: All requests served by HAP | '
               f'No UAV Relay | M/G/{NUMBER_OF_CHANNELS} queuing at the data channels | '
               f'Payload Length = {payload_size / 1e6} Mb | UAV Power Consumption = N/A kW | '
-              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, comm_delays))} seconds.\n')
+              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, service_times))} seconds.\n')
 
     ''' 1 static UAV-relay '''
 
     comm_delays_dict = single_uav_relay()
 
     for payload_size, comm_delays_tensor in comm_delays_dict.items():
-        waiting_times, comm_delays, environment = [], comm_delays_tensor.numpy(), Environment()
+        waiting_times, service_times, comm_delays, environment = [], [], comm_delays_tensor.numpy(), Environment()
 
-        environment.process(arrivals(environment,
-                                     [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
-                                     NUMBER_OF_REQUESTS, ARRIVAL_RATES[payload_size], waiting_times, comm_delays))
+        environment.process(arrivals(environment, [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
+                                     NUMBER_OF_REQUESTS, ARRIVAL_RATES[payload_size],
+                                     waiting_times, service_times, comm_delays))
 
         environment.run()
 
         print('[DEBUG] ReferenceModels UAV simulate_ops: '
               f'Payload Size = {payload_size / 1e6} Mb | '
-              f'Average Comm Delay = {np.mean(comm_delays)} seconds.')
+              f'Average Comm Delay = {np.mean(service_times)} seconds.')
 
         print('[DEBUG] ReferenceModels UAV simulate_ops: '
               f'Payload Size = {payload_size / 1e6} Mb | '
@@ -660,7 +663,7 @@ def simulate_ops():
         print('[INFO] ReferenceModels UAV simulate_ops: Decode-Forward with UAV-relay | '
               f'Single UAV Relay | M/G/{NUMBER_OF_CHANNELS} queuing at the data channels | '
               f'Payload Length = {payload_size / 1e6} Mb | UAV Power Consumption = {static_uav_pavg / 1e3} kW | '
-              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, comm_delays))} seconds.\n')
+              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, service_times))} seconds.\n')
 
     ''' Multiple static UAV-relays '''
 
@@ -668,17 +671,17 @@ def simulate_ops():
 
     for payload_size, comm_delays_tuple in comm_delays_dict.items():
         comm_delays_argmins, comm_delays_tensor = comm_delays_tuple
-        waiting_times, comm_delays, environment = [], comm_delays_tensor.numpy(), Environment()
+        waiting_times, service_times, comm_delays, environment = [], [], comm_delays_tensor.numpy(), Environment()
 
-        environment.process(arrivals(environment,
-                                     [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
-                                     NUMBER_OF_REQUESTS, ARRIVAL_RATES[payload_size], waiting_times, comm_delays))
+        environment.process(arrivals(environment, [Resource(environment) for _ in range(NUMBER_OF_CHANNELS)],
+                                     NUMBER_OF_REQUESTS, ARRIVAL_RATES[payload_size],
+                                     waiting_times, service_times, comm_delays))
 
         environment.run()
 
         print('[DEBUG] ReferenceModels mUAV simulate_ops: '
               f'Payload Size = {payload_size / 1e6} Mb | '
-              f'Average Comm Delay = {np.mean(comm_delays)} seconds.')
+              f'Average Comm Delay = {np.mean(service_times)} seconds.')
 
         print('[DEBUG] ReferenceModels mUAV simulate_ops: '
               f'Payload Size = {payload_size / 1e6} Mb | '
@@ -687,7 +690,7 @@ def simulate_ops():
         print('[INFO] ReferenceModels mUAV simulate_ops: Decode-Forward with UAV-relays | '
               f'{number_of_uavs} UAV-relays | M/G/{NUMBER_OF_CHANNELS} queuing at the data channels | '
               f'Payload Size = {payload_size / 1e6} Mb | UAV Power Consumption = {static_uav_pavg / 1e3} kW | '
-              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, comm_delays))} seconds.\n')
+              f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(waiting_times, service_times))} seconds.\n')
 
 
 # Run Trigger

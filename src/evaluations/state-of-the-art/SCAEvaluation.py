@@ -130,25 +130,28 @@ def mobility_pwr(v):
         (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5) + (p3 * (v ** 3))
 
 
-def gn_request(env, chs, w_times, serv_times):
+def gn_request(env, chs, w_times, s_times, serv_times):
     """
     Simpy queueing model: GN request
     """
     arr_time = env.now
+    gn_r_idx = np.random.choice(gn_indices)
     k = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
 
     with chs[k].request() as req:
         yield req
         w_times.append(env.now - arr_time)
-        yield env.timeout(serv_times[np.random.choice(gn_indices)])
+        s_times.append(serv_times[gn_r_idx])
+        yield env.timeout(serv_times[gn_r_idx])
 
 
-def arrivals(env, chs, n_r, arr, w_times, serv_times):
+def arrivals(env, chs, n_r, arr, w_times, s_times, serv_times):
     """
     Simpy queueing model: Poisson arrivals
     """
     for num in range(n_r):
-        env.process(gn_request(env, chs, w_times, serv_times))
+        env.process(gn_request(env, chs,
+                               w_times, s_times, serv_times))
         yield env.timeout(-np.log(np.random.random_sample()) / arr)
 
 
@@ -407,9 +410,10 @@ def evaluate():
     # serv_idxs = [np.argmin([tf.reduce_sum(
     #     tf.multiply(tau[_u, :, _k], t[_u, :])) for _u in range(n_u)]) for _k in range(n_k)]
 
-    w_times, env = [], Environment()
+    w_times, s_times, env = [], [], Environment()
 
-    env.process(arrivals(env, [Resource(env) for _ in range(n_c)], n, arr_rates[data_len], w_times, serv_times))
+    env.process(arrivals(env, [Resource(env) for _ in range(n_c)],
+                         n, arr_rates[data_len], w_times, s_times, serv_times))
 
     env.run()
 
@@ -423,12 +427,12 @@ def evaluate():
 
     print('[DEBUG] SCAEvaluation evaluate: '
           f'Payload Size = {data_len / 1e6} Mb | '
-          f'Average Comm Delay = {np.mean(serv_times)} seconds.')
+          f'Average Comm Delay = {np.mean(s_times)} seconds.')
 
     print('[DEBUG] SCAEvaluation evaluate: '
           f'{n_u} UAV-relays | M/G/{n_c} queuing at the data channels | '
           f'Payload Size = {data_len / 1e6} Mb | UAV Power Consumption = {p_avg / 1e3} kW | '
-          f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(w_times, serv_times))} seconds.')
+          f'Average Total Service Delay (Wait + Comm) = {np.mean(np.add(w_times, s_times))} seconds.')
 
 
 # Run Trigger
