@@ -579,22 +579,29 @@ class MAESTRO(object):
         traj_files = [f'{INPUT_DIR[p_size]}{_h_a}/trajs/{(i__ * a_num) + j__ + 1}.log' for _h_a in HCSO_METRICS_ALPHA]
 
         for traj_file in traj_files:
-            args = []
-
             with open(traj_file, 'r') as file:
-                for line in file.readlines():
-                    # noinspection RegExpUnnecessaryNonCapturingGroup
-                    args.append(tf.string.to_number(re.findall(r'[-+]?(?:\d*\.*\d+)', line.strip()), tf.float64))
+                lines = file.readlines()
+                # noinspection RegExpUnnecessaryNonCapturingGroup
+                file_v_star = tf.strings.to_number(re.findall(r'[-+]?(?:\d*\.*\d+)',
+                                                              lines[2].strip()), tf.float64)
+                # noinspection RegExpUnnecessaryNonCapturingGroup
+                file_p_star_ = tf.strings.to_number(re.findall(r'-?\d*\.?\d+e[+-]?\d+|[-+]?(?:\d*\.*\d+)',
+                                                               lines[3].strip().replace('\\n', '')), tf.float64)
 
-            file_v_star, file_p_star = args[2:]
+            p_star_arr = []
+            for _idx in range(0, file_p_star_.shape[0], 2):
+                p_star_arr.append([file_p_star_[_idx], file_p_star_[_idx + 1]])
+
+            file_p_star = tf.Variable(p_star_arr, dtype=tf.float64)
+
             read_trajs.append((file_p_star, file_v_star))
 
         r_u, r_g, psi_gu = c_state
         num_trajs = len(read_trajs)
-        f_hats = tf.Variable(tf.zeros(shape=[num_trajs, ]), dtype=tf.float64)
-        deltas = tf.Variable(tf.zeros(shape=[num_trajs, ]), dtype=tf.float64)
-        e_usages = tf.Variable(tf.zeros(shape=[num_trajs, ]), dtype=tf.float64)
         x_g = tf.constant([r_g * np.cos(psi_gu), r_g * np.sin(psi_gu)], dtype=tf.float64)
+        f_hats = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
+        deltas = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
+        e_usages = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
 
         # Pick the best trajectory (out of all h_alpha variations) as the one that minimizes the cost metric
 

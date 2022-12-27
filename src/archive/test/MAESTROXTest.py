@@ -513,7 +513,7 @@ class ServiceNode(object):
                 p_star = d_gen.generate()
 
             x_m_1 = p_star[m_pos - 2, :]
-            den = np.linalg.norm(x_m_1.numpy(), axis=1)
+            den = np.linalg.norm(x_m_1.numpy())
 
             if den == 0.0:
                 x_m_updated = tf.Variable([r_u_, 0.0], dtype=tf.float64)

@@ -470,7 +470,7 @@ class ServiceNode(object):
             wp, vel = tf.concat([_wp, wp_], axis=0), tf.concat([_vel, vel_], axis=0)
 
             mp = int(wp.shape[0] / 2)
-            s_time, s_nrg = self.service(x_gn, avg_int, wp[:mp], vel[:mp], wp[mp:], vel[mp:])
+            s_time, s_nrg = self.service(x_gn, avg_int, wp[:mp], vel[:mp], 0.0, wp[mp:], vel[mp:], 0.0)
         else:
             s_time, s_nrg = self.service(x_gn, avg_int)
 

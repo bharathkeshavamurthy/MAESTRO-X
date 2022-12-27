@@ -18,6 +18,7 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
 import re
 import plotly
+import warnings
 import numpy as np
 import tensorflow as tf
 import plotly.graph_objs as graph_objs
@@ -25,17 +26,27 @@ from scipy.stats import rice, ncx2, rayleigh
 from concurrent.futures import ThreadPoolExecutor
 
 """
+Miscellaneous
+"""
+
+# Numpy random seed
+np.random.seed(6)
+
+# Filter user warnings
+warnings.filterwarnings("ignore", category=UserWarning)
+warnings.filterwarnings("ignore", category=DeprecationWarning)
+
+"""
 Configurations-II: Simulation parameters 
 """
 
 pi = np.pi
-np.random.seed(6)
 bw, n_c = 40e6, 8
 ip_dir = '../../../logs/policies/'
 a, n_w, m, m_ip = 1e3, 1024, 32, 2
 bw_, ap, ap_, kp = bw / n_c, 2.0, 2.8, 0.2
-hcso_alphas = np.arange(start=0.0, stop=1.1, step=0.1)
 k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
+hcso_alphas = np.round(np.arange(start=0.0, stop=1.2, step=0.2), 1)
 decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 utip, v0, p1, p2, p3, v_min, v_max = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0
 plotly.tools.set_credentials_file(username='bkeshav1', api_key='BCvYNi3LNNXgfpDGEpo0')
@@ -144,26 +155,6 @@ def pwr_cost(v):
     return tf.map_fn(mobility_pwr, v, parallel_iterations=n_w)
 
 
-def direct(x_gn):
-    link_perf = LinkPerformance()
-
-    d_gb = np.sqrt(np.add(np.square(h_bs), np.square(np.linalg.norm(x_gn.numpy()))))
-    phi_gb = np.arcsin(np.divide(h_bs, d_gb))
-
-    r_los_gb, r_nlos_gb = tf.Variable(0.0, dtype=tf.float64), tf.Variable(0.0, dtype=tf.float64)
-
-    link_perf.ra_tgpt(d_gb, phi_gb, r_los_gb, r_nlos_gb, n_w)
-
-    phi_degrees_gb = (180.0 / pi) * phi_gb
-
-    p_los_gb = 1 / (1 + (z_1 * tf.exp(-z_2 * (phi_degrees_gb - z_1))))
-    p_nlos_gb = 1 - p_los_gb
-
-    r_bar_gb = np.add(np.multiply(p_los_gb, r_los_gb.numpy()), np.multiply(p_nlos_gb, r_nlos_gb.numpy()))
-
-    return data_len / r_bar_gb, 0.0
-
-
 def decode(x_gn, d_p, d_v, d_lp):
     link_perf = LinkPerformance()
 
@@ -242,32 +233,44 @@ def service(x_gn, *args_):
 # Run Trigger
 if __name__ == '__main__':
     read_trajs = []
-    traj_files = [f'{ip_dir}{int(data_len / 1e6)}{_h_a}/trajs/0.log' for _h_a in hcso_alphas]
+    traj_files = [f'{ip_dir}{int(data_len / 1e6)}/{_h_a}/trajs/0.log' for _h_a in hcso_alphas]
 
     for traj_file in traj_files:
-        args = []
-
         with open(traj_file, 'r') as file:
-            for line in file.readlines():
-                # noinspection RegExpUnnecessaryNonCapturingGroup
-                args.append(tf.string.to_number(re.findall(r'[-+]?(?:\d*\.*\d+)', line.strip()), tf.float64))
+            lines = file.readlines()
+            # noinspection RegExpUnnecessaryNonCapturingGroup
+            file_v_star = tf.strings.to_number(re.findall(r'[-+]?(?:\d*\.*\d+)',
+                                                          lines[2].strip()), tf.float64)
+            # noinspection RegExpUnnecessaryNonCapturingGroup
+            file_p_star_ = tf.strings.to_number(re.findall(r'-?\d*\.?\d+e[+-]?\d+|[-+]?(?:\d*\.*\d+)',
+                                                           lines[3].strip().replace('\\n', '')), tf.float64)
 
-        file_v_star, file_p_star = args[2:]
+        p_star_arr = []
+        for _idx in range(0, file_p_star_.shape[0], 2):
+            p_star_arr.append([file_p_star_[_idx], file_p_star_[_idx + 1]])
+
+        file_p_star = tf.Variable(p_star_arr, dtype=tf.float64)
+
         read_trajs.append((file_p_star, file_v_star))
 
     r_u_ = c_action
     r_u, r_g, psi_gu = c_state
     num_trajs = len(read_trajs)
     x_u = tf.constant([r_u, 0.0], dtype=tf.float64)
-    f_hats = tf.Variable(tf.zeros(shape=[num_trajs, ]), dtype=tf.float64)
-    deltas = tf.Variable(tf.zeros(shape=[num_trajs, ]), dtype=tf.float64)
-    e_usages = tf.Variable(tf.zeros(shape=[num_trajs, ]), dtype=tf.float64)
     x_g = tf.constant([r_g * np.cos(psi_gu), r_g * np.sin(psi_gu)], dtype=tf.float64)
+    f_hats = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
+    deltas = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
+    e_usages = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
 
     for traj_idx in range(num_trajs):
         h_alpha = hcso_alphas[traj_idx]
         p_star_, v_star_ = read_trajs[traj_idx]
-        s_time, s_nrg = service(x_g)
+
+        midpoint = int(p_star_.shape[0] / 2)
+
+        s_time, s_nrg = service(x_g, p_star_[:midpoint], v_star_[:midpoint],
+                                0.0, p_star_[midpoint:], v_star_[midpoint:], 0.0)
+
         tf.compat.v1.assign(f_hats[traj_idx], ((1.0 - (2.0 * h_alpha)) * s_time) +
                             ((h_alpha / max_pwr) * s_nrg), validate_shape=True, use_locking=True)
 
@@ -275,7 +278,7 @@ if __name__ == '__main__':
     p_star, v_star = read_trajs[min_traj_idx]
 
     x_m_1 = p_star[(m * m_ip) - 2, :]
-    den = np.linalg.norm(x_m_1.numpy(), axis=1)
+    den = np.linalg.norm(x_m_1.numpy())
 
     if den == 0.0:
         x_m_updated = tf.Variable([r_u_, 0.0], dtype=tf.float64)
