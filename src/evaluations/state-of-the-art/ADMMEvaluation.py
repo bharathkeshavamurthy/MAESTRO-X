@@ -117,8 +117,8 @@ def mobility_power(v):
     """
     UAV mobility power consumption
     """
-    return (p1 * (1 + ((3 * (v ** 2)) / (utip ** 2)))) + \
-        (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5) + (p3 * (v ** 3))
+    return (p1 * (1 + ((3 * (v ** 2)) / (utip ** 2)))) + (p3 * (v ** 3)) + \
+        (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5)
 
 
 def gn_request(env, chs, w_times, s_times, serv_times):
