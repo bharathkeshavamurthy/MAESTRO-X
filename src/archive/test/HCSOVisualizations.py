@@ -266,11 +266,10 @@ if __name__ == '__main__':
 
     for traj_idx in range(num_trajs):
         h_alpha = hcso_alphas[traj_idx]
-        with ThreadPoolExecutor(max_workers=n_w) as exxeggutor:
-            p_star_, v_star_ = read_trajs[traj_idx]
-            s_time, s_nrg = service(x_g)
-            tf.compat.v1.assign(f_hats[traj_idx], ((1.0 - (2.0 * h_alpha)) * s_time) +
-                                ((h_alpha / max_pwr) * s_nrg), validate_shape=True, use_locking=True)
+        p_star_, v_star_ = read_trajs[traj_idx]
+        s_time, s_nrg = service(x_g)
+        tf.compat.v1.assign(f_hats[traj_idx], ((1.0 - (2.0 * h_alpha)) * s_time) +
+                            ((h_alpha / max_pwr) * s_nrg), validate_shape=True, use_locking=True)
 
     min_traj_idx = tf.argmin(f_hats, axis=0)
     p_star, v_star = read_trajs[min_traj_idx]
@@ -311,6 +310,6 @@ if __name__ == '__main__':
 
     fig = dict(data=traj_plot_data, layout=plot_layout)
     fig_url = plotly.plotly.plot(fig, filename='HCSO_UAV_Trajectory', auto_open=False)
-    print('[INFO] HCSOVisualizations main: The plot of the optimal HCSO-determined UAV trajectory '
+    print('[INFO] HCSOVisualizations main: The plot of the optimal HCSO UAV trajectory '
           f'for the GN at {x_g.numpy()} [m, m], with Initial UAV Position = {x_u.numpy()} '
           f'[m, m] and Terminal UAV Position = {x_m_updated.numpy()} [m, m], is available at - {fig_url}.')
