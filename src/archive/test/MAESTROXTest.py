@@ -32,12 +32,11 @@ Configurations-I: Tensorflow logging
 """
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
-import re
 import uuid
 import ntplib
 import plotly
+import traceback
 import numpy as np
-import traceback as tb
 import tensorflow as tf
 from threading import Lock
 from datetime import datetime
@@ -46,6 +45,7 @@ from scipy.optimize import minimize
 from typing import List, Dict, Tuple
 from simpy import Environment, Resource
 from scipy.stats import rice, ncx2, rayleigh
+from scipy.interpolate import UnivariateSpline
 from concurrent.futures import ThreadPoolExecutor
 
 """
@@ -84,7 +84,7 @@ else:
     bw, n_c, arr_rates = 40e6, 8, arr_rates_h
     k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 
-bw_ = bw / n_c
+bw_, m, m_ip = bw / n_c, 32, 2
 ap, ap_, kp, snr_0 = 2.0, 2.8, 0.2, linear((5e6 * 40) / bw_)
 ld, r_p, ra_tol, ra_conf, h_bs, h_u, h_gn = arr_rates[data_len], 1e-2, 1e-10, 10, 80.0, 200.0, 0.0
 n_l, min_dist, d_00, d_01, d_c, th_c_num, snr_deg_tol = 25, 25.0, 1.0, -np.log(0.93) / ld, 1e-10, int(1e4), linear(5.0)
@@ -114,6 +114,40 @@ x_gns = tf.concat([_r * np.einsum('ji', np.vstack([np.cos(th_gns[_i]),
 
 n_g = x_gns.shape[0]
 gn_indices = [_ for _ in range(n_g)]
+
+''' Policy setup '''
+
+nu = 0.99 / p_avg
+s_wait = tf.constant(r_gns, dtype=tf.float64)
+a_wait = tf.constant(np.linspace(start=-v_max, stop=v_max, num=n_l), dtype=tf.float64)
+v_rs = {1e6: [7.5, 7.5, 7.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -27.5, -27.5, -27.5, -27.5,
+              -27.5, -27.5, -33.3, -33.3, -33.3, -33.3, -33.3, -33.3, -38.0, -38.0, -38.0, -38.0],
+        10e6: [7.5, 7.5, 7.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -27.5,
+               -27.5, -27.5, -27.5, -27.5, -27.5, -27.5, -27.5, -27.5, -33.3, -33.3, -33.3, -33.3],
+        100e6: [7.5, 7.5, 7.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5,
+                -22.5, -22.5, -22.5, -27.5, -27.5, -27.5, -27.5, -27.5, -27.5, -27.5, -27.5, -27.5]}
+
+wait_policy = {_k: {r_us[_i]: v_rs[_k][_i] for _i in range(n_l)} for _k in v_rs.keys()}
+
+radii = np.linspace(start=0.0, stop=a, num=n_l)
+angles = [np.linspace(start=0.0, stop=2 * np.pi, num=int((2 * np.pi * _r) / min_dist) + 1) for _r in radii]
+
+coords_dict = {_r: _r * np.einsum('ji', np.vstack([np.cos(angles[_i]),
+                                                   np.sin(angles[_i])])) for _i, _r in enumerate(radii)}
+
+comm_states_dict = {_r_u: [{_r_g: np.unique(np.rad2deg([
+    (np.arctan2(*__c_u[::-1]) - np.arctan2(*__c_g[::-1])) % (2 * np.pi) for __c_g in _c_g]))
+    for _r_g, _c_g in coords_dict.items()} for __c_u in _c_u] for _r_u, _c_u in coords_dict.items()}
+
+comm_states_arr = []
+for _r_u, _csd_u in comm_states_dict.items():
+    for _csd_gu in _csd_u:
+        for _r_g, _csd_g in _csd_gu.items():
+            for _a_gu in _csd_g:
+                comm_states_arr.append([int(_r_u), int(_r_g), int(_a_gu)])
+
+a_comm = tf.constant(radii, dtype=tf.float64)
+s_comm = tf.constant(np.unique(comm_states_arr, axis=0), dtype=tf.float64)
 
 """
 DTOs
@@ -208,7 +242,7 @@ class ServiceNode(object):
             i = min([_ for _ in range(n_l)], key=lambda _x: abs(r_u - r_us[_x]))
             peers = {_k: _v.current_position for _k, _v in self.env_nodes.items() if _v.state_flag == 'WAIT'}
 
-            v_r = o_star[tf.argmin(s_wait - r_u)]
+            v_r = wait_policy[tf.argmin(s_wait - r_u)]
 
             def vel_fn(th_c):
                 return (v_r ** 2 + (r_u * th_c) ** 2) ** 0.5
@@ -466,6 +500,28 @@ class ServiceNode(object):
 
             st = tf.argmin(tf.reduce_sum(tf.norm(s_comm - tf.concat(x_u, x_gn, axis=1), axis=1), axis=1))
 
+            r_u, r_g, psi_gu = s_comm[st]
+            r_u_, m_pos = r_g / 2, m * m_ip
+
+            x_u = tf.Variable([r_u, 0.0], dtype=tf.float64)
+            x_u_ = tf.Variable([r_u_, 0.0], dtype=tf.float64)
+            x_g = tf.constant([r_g * np.cos(psi_gu), r_g * np.sin(psi_gu)], dtype=tf.float64)
+
+            v_star = tf.Variable(np.linspace(start=21.0, stop=33.0, num=m_pos), dtype=tf.float64)
+
+            with DeterministicTrajectoriesGeneration(a, m_pos, x_u, x_g, x_u_) as d_gen:
+                p_star = d_gen.generate()
+
+            x_m_1 = p_star[m_pos - 2, :]
+            den = np.linalg.norm(x_m_1.numpy(), axis=1)
+
+            if den == 0.0:
+                x_m_updated = tf.Variable([r_u_, 0.0], dtype=tf.float64)
+            else:
+                x_m_updated = tf.multiply(r_u_, tf.divide(x_m_1, den))
+
+            tf.compat.v1.assign(p_star[-1, :], x_m_updated)
+
             wp_, vel_ = p_star[st], v_star[st]
             wp, vel = tf.concat([_wp, wp_], axis=0), tf.concat([_vel, vel_], axis=0)
 
@@ -549,6 +605,46 @@ class MessagingMiddleware(object):
 """
 Utilities
 """
+
+
+# noinspection PyMethodMayBeStatic
+class DeterministicTrajectoriesGeneration(object):
+
+    def __init__(self, rad, m_post, x_0, x_g, x_m):
+        self.rad = rad
+        self.x_0 = x_0
+        self.x_g = x_g
+        self.x_m = x_m
+        self.m_post = m_post
+
+    def __enter__(self):
+        return self
+
+    def generate(self):
+        rad, m_post = self.rad, self.m_post
+        x_0, x_g, x_m = self.x_0, self.x_g, self.x_m
+
+        x_mid_0g = tf.divide(tf.add(x_0, x_g), 2)
+        x_mid_0mid = tf.divide(tf.add(x_0, x_mid_0g), 2)
+        x_mid_midg = tf.divide(tf.add(x_mid_0g, x_g), 2)
+
+        x_mid_gm = tf.divide(tf.add(x_g, x_m), 2)
+        x_mid_gmid = tf.divide(tf.add(x_g, x_mid_gm), 2)
+        x_mid_midm = tf.divide(tf.add(x_mid_gmid, x_m), 2)
+
+        traj = tf.concat([x_mid_0mid, x_mid_0g, x_mid_midg, x_g, x_mid_gmid, x_mid_gm, x_mid_midm], axis=0)
+
+        i_s = [_ for _ in range(traj.shape[0] + 2)]
+        x = np.linspace(0, (len(i_s) - 1), m_post, dtype=np.float64)
+
+        return tf.clip_by_norm(tf.constant(list(zip(
+            UnivariateSpline(i_s, tf.concat([x_0[:, 0], traj[:, 0], x_m[:, 0]], axis=0), s=0)(x),
+            UnivariateSpline(i_s, tf.concat([x_0[:, 1], traj[:, 1], x_m[:, 1]], axis=0), s=0)(x)))), a, axes=1)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_tb is not None:
+            print(f'[ERROR] DeterministicTrajectoriesGeneration Termination: Tearing things down - '
+                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
 def mobility_pwr(v):
@@ -699,22 +795,6 @@ requests, tx_rx_map = {}, {}
 server_node_map = {server_node.id for server_node in server_nodes}
 ground_node_map = {ground_node_ids[_i]: x_gns[_i] for _i in range(n_g)}
 channel_map = {ch_id: {'wait': [], 'serv': []} for ch_id in channel_ids}
-
-try:
-
-    with open(policy_file, 'r') as file:
-        for line in file.readlines():
-            # noinspection RegExpUnnecessaryNonCapturingGroup
-            args.append(tf.strings.to_number(re.findall(r'[-+]?(?:\d*\.*\d+)', line.strip()), tf.float64))
-
-except Exception as e:
-    print(f'[ERROR] MAESTRO-X: Exception caught while parsing {policy_file}: {tb.print_tb(e.__traceback__)}.')
-
-uid, nu, p_av, ell, bs_delta_s, uav_delta_s, delta_s, bs_energy_s = args[:8]
-s_wait, s_comm, uav_energy_s, a_wait, a_comm, energy_s = args[8:14]
-p_star, v_star, xi_star, o_star, u_star = args[14:]
-
-assert uid == agent_id and data_len == ell and p_avg == p_av
 
 env.process(arrivals())
 env.run()

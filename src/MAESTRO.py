@@ -534,7 +534,7 @@ class MAESTRO(object):
 
         return self.PENALTIES_CAPSULE(t_p_1=t_p_1, t_p_2=t_p_2, e_p_1=e_p_1, e_p_2=e_p_2)
 
-    @tf.function
+    @tf.function(experimental_relax_shapes=True)
     @tf.autograph.experimental.do_not_convert
     def __power_cost(self, v):
         n_w = self.num_workers

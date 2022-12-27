@@ -328,7 +328,7 @@ def evaluate_power_consumption(uav_flying_velocity):
     p_1, p_2, p_3 = POWER_PROFILE_CONSTANT_1, POWER_PROFILE_CONSTANT_2, POWER_PROFILE_CONSTANT_3
 
     return (p_1 * (1 + ((3 * (v ** 2)) / (u_tip ** 2)))) + (p_3 * (v ** 3)) + \
-           (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5)
+        (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5)
 
 
 def fz(z_):
@@ -526,7 +526,8 @@ def penalties(p__, v__, x_g, res_multiplier):
     return PENALTIES_CAPSULE(t_p_1=t_p_1, t_p_2=t_p_2, e_p_1=e_p_1, e_p_2=e_p_2)
 
 
-@tf.function
+@tf.function(experimental_relax_shapes=True)
+@tf.autograph.experimental.do_not_convert
 def power_cost(v):
     return tf.map_fn(evaluate_power_consumption, v, parallel_iterations=num_workers)
 

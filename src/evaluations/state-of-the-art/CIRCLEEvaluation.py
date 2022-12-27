@@ -284,7 +284,7 @@ def ub_subtrajectory(u, m_):
             'p': x_uavs[u, m_:m__ + 1, :] if m_ < m__ else x_uavs[u, m__:m_ + 1, :]}
 
 
-@tf.function
+@tf.function(experimental_relax_shapes=True)
 @tf.autograph.experimental.do_not_convert
 def pwr_cost(v):
     return tf.map_fn(mobility_pwr, v, parallel_iterations=n_w)

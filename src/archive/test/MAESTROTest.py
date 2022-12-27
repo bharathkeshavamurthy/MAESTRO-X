@@ -190,10 +190,10 @@ class MAESTRO(object):
     CELL_RADIUS = 1e3
 
     # The number of radii needed for discretization of comm state space $G_{R}+1$ or K_{R}+1$ or $N_{\text{sp}}$
-    RADII_LEVELS = 25
+    RADII_LEVELS = 6
 
     # The smallest required distance between two nodes (UAV/GN) along the circumference of a specific radius level in m
-    MIN_CIRC_DISTANCE = 25.0
+    MIN_CIRC_DISTANCE = 240.0
 
     ''' UAV mobility power consumption model '''
 
@@ -301,7 +301,7 @@ class MAESTRO(object):
     PRIMAL_FEASIBILITY_THRESHOLD = 1e-3
 
     # The tolerance value for the bisection method to find the optimal value of $Z$ for rate adaptation
-    BISECTION_METHOD_TOLERANCE = 1e-10
+    BISECTION_METHOD_TOLERANCE = 1e-3
 
     # The complementary slackness threshold in the projected sub-gradient ascent algorithm ($\epsilon_{CS}$)
     COMPLEMENTARY_SLACKNESS_THRESHOLD = 0.1
@@ -313,16 +313,16 @@ class MAESTRO(object):
     PENALTIES_CAPSULE = namedtuple('penalties_capsule', ['t_p_1', 't_p_2', 'e_p_1', 'e_p_2'])
 
     # The convergence confidence level for the bisection method to find the optimal value of $Z$ for rate adaptation
-    BISECTION_CONVERGENCE_CONFIDENCE = 10
+    BISECTION_CONVERGENCE_CONFIDENCE = 3
 
     # The convergence confidence level for the SMDP-VI and PSGA algorithms to find the optimal MAESTRO control policy
-    CONVERGENCE_CONFIDENCE = 10
+    CONVERGENCE_CONFIDENCE = 3
 
     # The number of waypoints to be interpolated between any two given points in the generated $M$-segment trajectories
     INTERPOLATION_FACTOR = 2
 
     # The termination threshold for angular velocity optimization (within Lagrangian minimization) in the waiting states
-    ANGULAR_VELOCITY_TERMINATION_THRESHOLD = 1e-10
+    ANGULAR_VELOCITY_TERMINATION_THRESHOLD = 1e-3
 
     """
     DTOs
@@ -570,7 +570,7 @@ class MAESTRO(object):
 
         return self.PENALTIES_CAPSULE(t_p_1=t_p_1, t_p_2=t_p_2, e_p_1=e_p_1, e_p_2=e_p_2)
 
-    @tf.function
+    @tf.function(experimental_relax_shapes=True)
     @tf.autograph.experimental.do_not_convert
     def __power_cost(self, v):
         n_w = self.num_workers

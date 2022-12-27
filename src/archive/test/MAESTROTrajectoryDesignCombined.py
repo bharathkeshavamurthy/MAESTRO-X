@@ -526,7 +526,8 @@ def penalties(p__, v__, x_g, res_multiplier):
     return PENALTIES_CAPSULE(t_p_1=t_p_1, t_p_2=t_p_2, e_p_1=e_p_1, e_p_2=e_p_2)
 
 
-@tf.function
+@tf.function(experimental_relax_shapes=True)
+@tf.autograph.experimental.do_not_convert
 def power_cost(v):
     return tf.map_fn(evaluate_power_consumption, v, parallel_iterations=num_workers)
 
