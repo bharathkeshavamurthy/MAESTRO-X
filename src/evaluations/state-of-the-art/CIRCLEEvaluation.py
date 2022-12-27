@@ -153,11 +153,12 @@ def gn_request(env, xs, ell, chs, w, s, z, e):
                          use_locking=True) if z[u] > 0.0 else None for u in range(num_uavs)]
 
     arr = env.now
-    s_u, s_t, s_e, s_x = min([aggregated_service_metrics(
-        u, xs[u], x_gns[np.random.choice(gn_indices)], ell) for u in range(num_uavs)],
-        key=lambda x: omi * x.t + (1 - omi) * x.e + len(chs[x.u].put_queue) + len(chs[x.u].users))
+    k_ch = np.argmin([max([0, len(_k.put_queue) + len(_k.users)]) for _k in chs])
 
-    with chs[s_u].request() as req:
+    s_u, s_t, s_e, s_x = min([aggregated_service_metrics(u, xs[u], x_gns[np.random.choice(gn_indices)], ell)
+                              for u in range(num_uavs)], key=lambda x: omi * x.t + (1 - omi) * x.e)
+
+    with chs[k_ch].request() as req:
         yield req
         w.append(env.now - arr)
         s.append(s_t)
@@ -316,7 +317,7 @@ def gu_link_metrics(v, p, x_gn, ell):
     t_p = (lambda: 0.0, lambda: (h_xtra / r_bar_gu[-1]) if r_bar_gu[-1] != 0.0 else np.inf)[h_xtra.numpy() > 0.0]()
     e_p = (lambda: 0.0, lambda: (hover_pwr * t_p))[h_xtra.numpy() > 0.0]()
 
-    return gu_metrics(t=tf.reduce_sum(t), t_p=t_p, e=tf.reduce_sum(tf.multiply(t, pwr_cost(v[:-1], n_w))), e_p=e_p)
+    return gu_metrics(t=tf.reduce_sum(t), t_p=t_p, e=tf.reduce_sum(tf.multiply(t, pwr_cost(v[:-1]))), e_p=e_p)
 
 
 def ub_link_metrics(v, p, ell):
@@ -346,7 +347,7 @@ def ub_link_metrics(v, p, ell):
     t_p = (lambda: 0.0, lambda: (h_xtra / r_bar_ub[-1]) if r_bar_ub[-1] != 0.0 else np.inf)[h_xtra.numpy() > 0.0]()
     e_p = (lambda: 0.0, lambda: (hover_pwr * t_p))[h_xtra.numpy() > 0.0]()
 
-    return ub_metrics(t=tf.reduce_sum(t), t_p=t_p, e=tf.reduce_sum(tf.multiply(t, pwr_cost(v[:-1], n_w))), e_p=e_p)
+    return ub_metrics(t=tf.reduce_sum(t), t_p=t_p, e=tf.reduce_sum(tf.multiply(t, pwr_cost(v[:-1]))), e_p=e_p)
 
 
 def aggregated_service_metrics(u, x_uav, x_gn, ell):

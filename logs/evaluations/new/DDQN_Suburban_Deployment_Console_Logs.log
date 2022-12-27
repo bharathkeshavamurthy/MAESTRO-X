@@ -1,0 +1,56 @@
+Rate Factor = Number of UAVs = 1
+
+C:\Users\kesha\Workspaces\venv\Scripts\python.exe C:\Users\kesha\Workspaces\MAESTRO-X\src\evaluations\state-of-the-art\DDQNEvaluation.py 
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 1.0 Mb | Average Wait Time = 0.011033870379935116 seconds.
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 1.0 Mb | Average Communication Service Time = 1.1263025326935607 seconds.
+[INFO] DDQNEvaluation evaluate: [1] UAV Relays | Payload Size = 1.0 Mb | UAV Power Consumption = 1.1076602731047 kW | Average Total Service Delay (Wait + Comm) = 1.1373364030734958 seconds.
+
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 10.0 Mb | Average Wait Time = 1.063391147574656 seconds.
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 10.0 Mb | Average Communication Service Time = 11.26302532693561 seconds.
+[INFO] DDQNEvaluation evaluate: [1] UAV Relays | Payload Size = 10.0 Mb | UAV Power Consumption = 1.1076602731047 kW | Average Total Service Delay (Wait + Comm) = 12.326416474510266 seconds.
+
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 100.0 Mb | Average Wait Time = 73.68238258260496 seconds.
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 100.0 Mb | Average Communication Service Time = 112.63025326935607 seconds.
+[INFO] DDQNEvaluation evaluate: [1] UAV Relays | Payload Size = 100.0 Mb | UAV Power Consumption = 1.1076602731047 kW | Average Total Service Delay (Wait + Comm) = 186.31263585196103 seconds.
+
+Process finished with exit code 0
+
+
+--
+
+Rate Factor = Number of UAVs = 2
+
+C:\Users\kesha\Workspaces\venv\Scripts\python.exe C:\Users\kesha\Workspaces\MAESTRO-X\src\evaluations\state-of-the-art\DDQNEvaluation.py 
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 1.0 Mb | Average Wait Time = 10.30173770448155 seconds.
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 1.0 Mb | Average Communication Service Time = 1.7296577224793634 seconds.
+[INFO] DDQNEvaluation evaluate: [2] UAV Relays | Payload Size = 1.0 Mb | UAV Power Consumption = 1.1076602731047 kW | Average Total Service Delay (Wait + Comm) = 12.031395426960913 seconds.
+
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 10.0 Mb | Average Wait Time = 21428.65303189616 seconds.
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 10.0 Mb | Average Communication Service Time = 17.296577224793637 seconds.
+[INFO] DDQNEvaluation evaluate: [2] UAV Relays | Payload Size = 10.0 Mb | UAV Power Consumption = 1.1076602731047 kW | Average Total Service Delay (Wait + Comm) = 21445.949609120955 seconds.
+
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 100.0 Mb | Average Wait Time = 427463.8310952589 seconds.
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 100.0 Mb | Average Communication Service Time = 172.96577224793634 seconds.
+[INFO] DDQNEvaluation evaluate: [2] UAV Relays | Payload Size = 100.0 Mb | UAV Power Consumption = 1.1076602731047 kW | Average Total Service Delay (Wait + Comm) = 427636.7968675068 seconds.
+
+Process finished with exit code 0
+
+
+--
+
+Rate Factor = Number of UAVs = 3
+
+C:\Users\kesha\Workspaces\venv\Scripts\python.exe C:\Users\kesha\Workspaces\MAESTRO-X\src\evaluations\state-of-the-art\DDQNEvaluation.py 
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 1.0 Mb | Average Wait Time = 1904.4717183763576 seconds.
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 1.0 Mb | Average Communication Service Time = 1.8474069170105747 seconds.
+[INFO] DDQNEvaluation evaluate: [3] UAV Relays | Payload Size = 1.0 Mb | UAV Power Consumption = 1.1076602731047 kW | Average Total Service Delay (Wait + Comm) = 1906.3191252933682 seconds.
+
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 10.0 Mb | Average Wait Time = 53022.152344419155 seconds.
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 10.0 Mb | Average Communication Service Time = 18.47406917010575 seconds.
+[INFO] DDQNEvaluation evaluate: [3] UAV Relays | Payload Size = 10.0 Mb | UAV Power Consumption = 1.1076602731047 kW | Average Total Service Delay (Wait + Comm) = 53040.62641358926 seconds.
+
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 100.0 Mb | Average Wait Time = 704144.1992692732 seconds.
+[DEBUG] DDQNEvaluation evaluate: Payload Size = 100.0 Mb | Average Communication Service Time = 184.7406917010575 seconds.
+[INFO] DDQNEvaluation evaluate: [3] UAV Relays | Payload Size = 100.0 Mb | UAV Power Consumption = 1.1076602731047 kW | Average Total Service Delay (Wait + Comm) = 704328.9399609743 seconds.
+
+Process finished with exit code 0

@@ -1,0 +1,56 @@
+Rate Factor = Number of UAVs = 1
+
+C:\Users\kesha\Workspaces\venv\Scripts\python.exe C:\Users\kesha\Workspaces\MAESTRO-X\src\evaluations\state-of-the-art\CIRCLEEvaluation.py 
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 1.0 Mb | Average Comm Delay = 211.81011880808396 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 1.0 Mb | Average Wait Delay = 273.8654829891374 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: 1 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 1.0 Mb | UAV Power Consumption = 0.5395414889522294 kW | Average Total Service Delay (Wait + Comm) = 485.67560179722136 seconds.
+
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 10.0 Mb | Average Comm Delay = 197.75881237862782 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 10.0 Mb | Average Wait Delay = 234.77991792875133 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: 1 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 10.0 Mb | UAV Power Consumption = 0.5657679058892848 kW | Average Total Service Delay (Wait + Comm) = 432.5387303073793 seconds.
+
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 100.0 Mb | Average Comm Delay = 283.9714974042956 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 100.0 Mb | Average Wait Delay = 357.0848922768525 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: 1 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 100.0 Mb | UAV Power Consumption = 0.5588087048944205 kW | Average Total Service Delay (Wait + Comm) = 641.0563896811481 seconds.
+
+Process finished with exit code 0
+
+
+--
+
+Rate Factor = Number of UAVs = 2
+
+C:\Users\kesha\Workspaces\venv\Scripts\python.exe C:\Users\kesha\Workspaces\MAESTRO-X\src\evaluations\state-of-the-art\CIRCLEEvaluation.py 
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 1.0 Mb | Average Comm Delay = 92.68260675481605 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 1.0 Mb | Average Wait Delay = 112.6539708982911 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: 2 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 1.0 Mb | UAV Power Consumption = 0.5512167454618658 kW | Average Total Service Delay (Wait + Comm) = 205.33657765310718 seconds.
+
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 10.0 Mb | Average Comm Delay = 88.1121928178766 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 10.0 Mb | Average Wait Delay = 125.61479946728731 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: 2 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 10.0 Mb | UAV Power Consumption = 0.505942647954217 kW | Average Total Service Delay (Wait + Comm) = 213.72699228516393 seconds.
+
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 100.0 Mb | Average Comm Delay = 152.83006044330415 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 100.0 Mb | Average Wait Delay = 196.95243952628908 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: 2 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 100.0 Mb | UAV Power Consumption = 0.5555255441657369 kW | Average Total Service Delay (Wait + Comm) = 349.78249996959323 seconds.
+
+Process finished with exit code 0
+
+
+--
+
+Rate Factor = Number of UAVs = 3
+
+C:\Users\kesha\Workspaces\venv\Scripts\python.exe C:\Users\kesha\Workspaces\MAESTRO-X\src\evaluations\state-of-the-art\CIRCLEEvaluation.py 
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 1.0 Mb | Average Comm Delay = 69.97400573156622 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 1.0 Mb | Average Wait Delay = 97.77676929509707 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: 3 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 1.0 Mb | UAV Power Consumption = 0.5051630278066542 kW | Average Total Service Delay (Wait + Comm) = 167.7507750266633 seconds.
+
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 10.0 Mb | Average Comm Delay = 87.10053656092441 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 10.0 Mb | Average Wait Delay = 116.47754431378681 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: 3 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 10.0 Mb | UAV Power Consumption = 0.5361624320127365 kW | Average Total Service Delay (Wait + Comm) = 203.57808087471122 seconds.
+
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 100.0 Mb | Average Comm Delay = 130.07006012082655 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: Payload Size = 100.0 Mb | Average Wait Delay = 164.39734988105548 seconds.
+[DEBUG] CIRCLEEvaluation evaluate: 3 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 100.0 Mb | UAV Power Consumption = 0.558579320969741 kW | Average Total Service Delay (Wait + Comm) = 294.46741000188206 seconds.
+
+Process finished with exit code 0
