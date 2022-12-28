@@ -21,6 +21,7 @@ import plotly
 import warnings
 import numpy as np
 import tensorflow as tf
+from scipy import interpolate
 import plotly.graph_objs as graph_objs
 from scipy.stats import rice, ncx2, rayleigh
 from concurrent.futures import ThreadPoolExecutor
@@ -46,7 +47,8 @@ ip_dir = '../../../logs/policies/'
 a, n_w, m, m_ip = 1e3, 1024, 32, 2
 bw_, ap, ap_, kp = bw / n_c, 2.0, 2.8, 0.2
 k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
-hcso_alphas = np.round(np.arange(start=0.0, stop=1.2, step=0.2), 1)
+sg_wsize1, sg_wsize2, sg_poly_order1, sg_poly_order2 = 5, 5, 3, 3
+hcso_alphas = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
 decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 utip, v0, p1, p2, p3, v_min, v_max = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0
 plotly.tools.set_credentials_file(username='bkeshav1', api_key='BCvYNi3LNNXgfpDGEpo0')
@@ -227,13 +229,13 @@ def service(x_gn, *args_):
     d_p, d_v, d_lp, f_p, f_v, f_lp = args_
     t_ub, t_p_ub, e_ub, e_p_ub = forward(f_p, f_v, f_lp)
     t_gu, t_p_gu, e_gu, e_p_gu = decode(x_gn, d_p, d_v, d_lp)
-    return t_gu + t_p_gu + t_ub + t_p_ub, e_gu + e_p_gu + e_ub + e_p_ub
+    return t_gu + t_ub, e_gu + e_ub
 
 
 # Run Trigger
 if __name__ == '__main__':
     read_trajs = []
-    traj_files = [f'{ip_dir}{int(data_len / 1e6)}/{_h_a}/trajs/0.log' for _h_a in hcso_alphas]
+    traj_files = [f'{ip_dir}{int(data_len / 1e6)}_new/{_h_a}/trajs/0.log' for _h_a in hcso_alphas]
 
     for traj_file in traj_files:
         with open(traj_file, 'r') as file:
@@ -260,10 +262,11 @@ if __name__ == '__main__':
     x_g = tf.constant([r_g * np.cos(psi_gu), r_g * np.sin(psi_gu)], dtype=tf.float64)
     f_hats = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
     deltas = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
-    e_usages = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
+    p_usages = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
 
     for traj_idx in range(num_trajs):
         h_alpha = hcso_alphas[traj_idx]
+
         p_star_, v_star_ = read_trajs[traj_idx]
 
         midpoint = int(p_star_.shape[0] / 2)
@@ -271,8 +274,14 @@ if __name__ == '__main__':
         s_time, s_nrg = service(x_g, p_star_[:midpoint], v_star_[:midpoint],
                                 0.0, p_star_[midpoint:], v_star_[midpoint:], 0.0)
 
+        print(f'{h_alpha}: {s_time} s | {s_nrg / s_time} W')
+
+        tf.compat.v1.assign(deltas[traj_idx], s_time, validate_shape=True, use_locking=True)
+
         tf.compat.v1.assign(f_hats[traj_idx], ((1.0 - (2.0 * h_alpha)) * s_time) +
                             ((h_alpha / max_pwr) * s_nrg), validate_shape=True, use_locking=True)
+
+        tf.compat.v1.assign(p_usages[traj_idx], s_nrg / s_time, validate_shape=True, use_locking=True)
 
     min_traj_idx = tf.argmin(f_hats, axis=0)
     p_star, v_star = read_trajs[min_traj_idx]
@@ -285,17 +294,23 @@ if __name__ == '__main__':
     else:
         x_m_updated = tf.multiply(r_u_, tf.divide(x_m_1, den))
 
-    tf.compat.v1.assign(p_star[-1, :], x_m_updated)
+    tf.compat.v1.assign(p_star[-1, :], x_m_updated, validate_shape=True, use_locking=True)
+
+    fn_d = interpolate.interp1d(hcso_alphas, deltas.numpy())
+    fn_p = interpolate.interp1d(hcso_alphas, p_usages.numpy())
+
+    hcso_alphas_new = np.arange(start=0.0, stop=1.0, step=0.01)
 
     plot_layout = dict(title='HCSO Alpha Metric Cost Analysis',
-                       xaxis=dict(title='Cost', autorange=True),
-                       yaxis=dict(title='HCSO Alpha', autorange=True))
-    plot_data = graph_objs.Scatter(x=hcso_alphas, y=f_hats.numpy(), mode='lines+markers')
+                       yaxis=dict(title='Power Consumption in W', autorange=True),
+                       xaxis=dict(title='Communication Service Delay in s', autorange=True))
+
+    plot_data = graph_objs.Scatter(x=fn_d(hcso_alphas_new), y=fn_p(hcso_alphas_new), mode='markers')
 
     fig = dict(data=[plot_data], layout=plot_layout)
     fig_url = plotly.plotly.plot(fig, filename='HCSO_Alpha_Cost_Analysis', auto_open=False)
-    print('[INFO] HCSOVisualizations main: The plot of the HCSO Cost versus HCSO Alpha '
-          f'for the UAV at {r_u.numpy()} and GN at {x_g.numpy()} is available at - {fig_url}.')
+    print('[INFO] HCSOVisualizations main: The plot of the HCSO Cost versus HCSO Alpha analysis '
+          f'for the UAV at radius level {r_u} and the GN at {x_g.numpy()} is available at - {fig_url}.')
 
     traj_plot_data = list()
 
