@@ -143,7 +143,7 @@ REFERENCE_SNR_AT_1_METER = linear((5e6 * 40) / CHANNEL_BANDWIDTH)
 ''' Algorithmic model '''
 
 # The HCSO metric in our re-formulation (new $\alpha$)
-HCSO_METRIC_ALPHA = 0.8  # 0.0, 0.1, 0.2, ..., 1.0
+HCSO_METRIC_ALPHA = 1.0  # 0.0, 0.1, 0.2, ..., 1.0
 
 # The data payload size for this evaluation ($L$) in bits
 DATA_PAYLOAD_SIZE = 10e6  # 1e6, 10e6, 100e6
@@ -724,13 +724,13 @@ if __name__ == '__main__':
           f'Data Payload Size [L] = {data_payload_size / 1e6} Mb | HCSO Metric [alpha] = {h_alpha}.')
 
     comm_action = 250.0
-    comm_state = [500.0, 500.0, np.pi]
+    comm_state = [500.0, 625.0, 80.0 * (180.0 / np.pi)]
 
     r_u_ = comm_action
     r_u, r_gn, psi = comm_state
-    x_init = tf.constant([[r_u, 0.0]], dtype=tf.float64)
-    x_final = tf.constant([[r_u_, 0.0]], dtype=tf.float64)
-    x_gn = tf.constant([[r_gn * np.cos(psi), r_gn * np.sin(psi)]], dtype=tf.float64)
+    x_init = tf.constant([[500.0, 0.0]], dtype=tf.float64)
+    x_final = tf.constant([[177.0, 177.0]], dtype=tf.float64)
+    x_gn = tf.constant([[193.0, 594.0]], dtype=tf.float64)
 
     o_trajs = tf.Variable(tf.zeros(shape=[INTERPOLATION_FACTOR * MAXIMUM_TRAJECTORY_SEGMENTS, 2],
                                    dtype=tf.float64), dtype=tf.float64)

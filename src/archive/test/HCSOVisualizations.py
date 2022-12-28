@@ -63,7 +63,7 @@ Configurations-III: Deployment settings
 x_bs = tf.constant([0.0, 0.0], dtype=tf.float64)
 
 ''' Comm state-action pair under analysis '''
-c_state, c_action = [500.0, 500.0, pi], 250.0
+c_state, c_action = [625.0, 875.0, 1.5707963267948966], 333.33
 
 """
 Utilities
