@@ -283,8 +283,7 @@ if __name__ == '__main__':
 
         tf.compat.v1.assign(p_usages[traj_idx], s_nrg / s_time, validate_shape=True, use_locking=True)
 
-    min_traj_idx = tf.argmin(f_hats, axis=0)
-    p_star, v_star = read_trajs[min_traj_idx]
+    p_star, v_star = read_trajs[tf.argmin(tf.abs(f_hats), axis=0)]
 
     x_m_1 = p_star[(m * m_ip) - 2, :]
     den = np.linalg.norm(x_m_1.numpy())
@@ -314,14 +313,18 @@ if __name__ == '__main__':
 
     traj_plot_data = list()
 
-    traj_plot_data.append(graph_objs.Scatter(x=[x_u[0].numpy()], y=[x_u[1].numpy()],
-                                             mode='markers', name='UAV Initial Position ' + str(x_u.numpy())))
+    traj_plot_data.append(graph_objs.Scatterpolar(r=[np.linalg.norm(x_u)],
+                                                  theta=[np.arctan(x_u[1] / x_u[0]) * (180.0 / pi)],
+                                                  mode='markers', name='UAV Initial Position ' + str(x_u.numpy())))
 
-    traj_plot_data.append(graph_objs.Scatter(x=[x_g[0].numpy()], y=[x_g[1].numpy()],
-                                             mode='markers', name='GN Position ' + str(x_g.numpy())))
+    traj_plot_data.append(graph_objs.Scatterpolar(r=[np.linalg.norm(x_g)],
+                                                  theta=[np.arctan(x_g[1] / x_g[0]) * (180.0 / pi)],
+                                                  mode='markers', name='GN Position ' + str(x_g.numpy())))
 
-    traj_plot_data.append(graph_objs.Scatter(x=p_star[:, 0].numpy(), y=p_star[:, 1].numpy(),
-                                             mode='lines+markers', name='UAV Optimal Trajectory'))
+    traj_plot_data.append(graph_objs.Scatterpolar(r=tf.norm(p_star, axis=1),
+                                                  theta=tf.multiply(180.0 / pi, tf.atan(tf.divide(p_star[:, 1],
+                                                                                                  p_star[:, 0]))),
+                                                  mode='markers', name='UAV Optimal Trajectory'))
 
     plot_layout = dict(title='Optimal HCSO-determined UAV Trajectory',
                        xaxis=dict(title='x (in m)'), yaxis=dict(title='y (in m)'))
