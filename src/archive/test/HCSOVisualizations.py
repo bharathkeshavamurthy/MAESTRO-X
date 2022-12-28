@@ -62,9 +62,6 @@ Configurations-III: Deployment settings
 ''' BS deployment '''
 x_bs = tf.constant([0.0, 0.0], dtype=tf.float64)
 
-''' Comm state-action pair under analysis '''
-c_state, c_action = [625.0, 875.0, 1.5707963267948966], 333.33
-
 """
 Utilities
 """
@@ -229,13 +226,13 @@ def service(x_gn, *args_):
     d_p, d_v, d_lp, f_p, f_v, f_lp = args_
     t_ub, t_p_ub, e_ub, e_p_ub = forward(f_p, f_v, f_lp)
     t_gu, t_p_gu, e_gu, e_p_gu = decode(x_gn, d_p, d_v, d_lp)
-    return t_gu + t_ub, e_gu + e_ub
+    return t_gu + t_p_gu + t_ub + t_p_ub, e_gu + e_p_gu + e_ub + e_p_ub
 
 
 # Run Trigger
 if __name__ == '__main__':
     read_trajs = []
-    traj_files = [f'{ip_dir}{int(data_len / 1e6)}_new/{_h_a}/trajs/0.log' for _h_a in hcso_alphas]
+    traj_files = [f'{ip_dir}{int(data_len / 1e6)}/{_h_a}/trajs/0.log' for _h_a in hcso_alphas]
 
     for traj_file in traj_files:
         with open(traj_file, 'r') as file:
@@ -255,11 +252,11 @@ if __name__ == '__main__':
 
         read_trajs.append((file_p_star, file_v_star))
 
-    r_u_ = c_action
-    r_u, r_g, psi_gu = c_state
     num_trajs = len(read_trajs)
-    x_u = tf.constant([r_u, 0.0], dtype=tf.float64)
-    x_g = tf.constant([r_g * np.cos(psi_gu), r_g * np.sin(psi_gu)], dtype=tf.float64)
+    x_u = tf.constant([500.0, 0.0], dtype=tf.float64)
+    x_f = tf.constant([0.0, -250.0], dtype=tf.float64)
+    x_g = tf.constant([-65.0, -622.0], dtype=tf.float64)
+
     f_hats = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
     deltas = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
     p_usages = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
@@ -285,16 +282,6 @@ if __name__ == '__main__':
 
     p_star, v_star = read_trajs[tf.argmin(tf.abs(f_hats), axis=0)]
 
-    x_m_1 = p_star[(m * m_ip) - 2, :]
-    den = np.linalg.norm(x_m_1.numpy())
-
-    if den == 0.0:
-        x_m_updated = tf.Variable([r_u_, 0.0], dtype=tf.float64)
-    else:
-        x_m_updated = tf.multiply(r_u_, tf.divide(x_m_1, den))
-
-    tf.compat.v1.assign(p_star[-1, :], x_m_updated, validate_shape=True, use_locking=True)
-
     fn_d = interpolate.interp1d(hcso_alphas, deltas.numpy())
     fn_p = interpolate.interp1d(hcso_alphas, p_usages.numpy())
 
@@ -309,9 +296,11 @@ if __name__ == '__main__':
     fig = dict(data=[plot_data], layout=plot_layout)
     fig_url = plotly.plotly.plot(fig, filename='HCSO_Alpha_Cost_Analysis', auto_open=False)
     print('[INFO] HCSOVisualizations main: The plot of the HCSO Cost versus HCSO Alpha analysis '
-          f'for the UAV at radius level {r_u} and the GN at {x_g.numpy()} is available at - {fig_url}.')
+          f'for the UAV at {x_u.numpy()} and the GN at {x_g.numpy()} is available at - {fig_url}.')
 
-    traj_plot_data = list()
+    traj_plot_data, vel_plot_data = list(), list()
+
+    vel_plot_data.append(graph_objs.Scatter(x=v_star.numpy(), y=v_star.numpy(), mode='markers'))
 
     traj_plot_data.append(graph_objs.Scatterpolar(r=[np.linalg.norm(x_u)],
                                                   theta=[np.arctan(x_u[1] / x_u[0]) * (180.0 / pi)],
@@ -326,11 +315,21 @@ if __name__ == '__main__':
                                                                                                   p_star[:, 0]))),
                                                   mode='markers', name='UAV Optimal Trajectory'))
 
-    plot_layout = dict(title='Optimal HCSO-determined UAV Trajectory',
-                       xaxis=dict(title='x (in m)'), yaxis=dict(title='y (in m)'))
+    vel_plot_layout = dict(title='Optimal HCSO-determined UAV Velocities',
+                           xaxis=dict(title='v (in m/s)'), yaxis=dict(title='v (in m/s)'))
 
-    fig = dict(data=traj_plot_data, layout=plot_layout)
-    fig_url = plotly.plotly.plot(fig, filename='HCSO_UAV_Trajectory', auto_open=False)
+    traj_plot_layout = dict(title='Optimal HCSO-determined UAV Trajectory',
+                            xaxis=dict(title='x (in m)'), yaxis=dict(title='y (in m)'))
+
+    fig_v = dict(data=vel_plot_data, layout=vel_plot_layout)
+    fig_t = dict(data=traj_plot_data, layout=traj_plot_layout)
+    fig_url_v = plotly.plotly.plot(fig, filename='HCSO_UAV_Velocity', auto_open=False)
+    fig_url_t = plotly.plotly.plot(fig, filename='HCSO_UAV_Trajectory', auto_open=False)
+
     print('[INFO] HCSOVisualizations main: The plot of the optimal HCSO UAV trajectory '
           f'for the GN at {x_g.numpy()} [m, m], with Initial UAV Position = {x_u.numpy()} '
-          f'[m, m] and Terminal UAV Position = {x_m_updated.numpy()} [m, m], is available at - {fig_url}.')
+          f'[m, m] and Terminal UAV Position = {x_f.numpy()} [m, m], is available at - {fig_url_t}.')
+
+    print('[INFO] HCSOVisualizations main: The plot of the optimal HCSO UAV velocities '
+          f'for the GN at {x_g.numpy()} [m, m], with Initial UAV Position = {x_u.numpy()} '
+          f'[m, m] and Terminal UAV Position = {x_f.numpy()} [m, m], is available at - {fig_url_v}.')
