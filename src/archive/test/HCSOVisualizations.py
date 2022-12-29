@@ -19,11 +19,13 @@ os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 import re
 import plotly
 import warnings
+import traceback
 import numpy as np
 import tensorflow as tf
 from scipy import interpolate
 import plotly.graph_objs as graph_objs
 from scipy.stats import rice, ncx2, rayleigh
+from scipy.interpolate import UnivariateSpline
 from concurrent.futures import ThreadPoolExecutor
 
 """
@@ -65,6 +67,38 @@ x_bs = tf.constant([0.0, 0.0], dtype=tf.float64)
 """
 Utilities
 """
+
+
+# noinspection PyMethodMayBeStatic
+class DeterministicTrajectoriesGeneration(object):
+
+    def __init__(self, x_0, x_m, m_post):
+        self.x_0 = x_0
+        self.x_m = x_m
+        self.m_post = m_post
+
+    def __enter__(self):
+        return self
+
+    def generate(self):
+        x_0, x_m, m_post = self.x_0, self.x_m, self.m_post
+
+        x_mid = tf.divide(tf.add(x_0, x_m), 2)
+        x_mid_0 = tf.divide(tf.add(x_0, x_mid), 2)
+        x_mid_m = tf.divide(tf.add(x_mid, x_m), 2)
+        traj = tf.concat([x_mid_0, x_mid, x_mid_m], axis=0)
+
+        i_s = [_ for _ in range(traj.shape[0] + 2)]
+        x = np.linspace(0, (len(i_s) - 1), m_post, dtype=np.float64)
+
+        return tf.clip_by_norm(tf.constant(list(zip(
+            UnivariateSpline(i_s, tf.concat([x_0[:, 0], traj[:, 0], x_m[:, 0]], axis=0), s=0)(x),
+            UnivariateSpline(i_s, tf.concat([x_0[:, 1], traj[:, 1], x_m[:, 1]], axis=0), s=0)(x)))), a, axes=1)
+
+    def __exit__(self, exc_type, exc_val, exc_tb):
+        if exc_tb is not None:
+            print(f'[ERROR] DeterministicTrajectoriesGeneration Termination: Tearing things down - '
+                  f'Error Type = {exc_type} | Error Value = {exc_val} | Traceback = {traceback.print_tb(exc_tb)}.')
 
 
 def mobility_pwr(v):
@@ -226,13 +260,13 @@ def service(x_gn, *args_):
     d_p, d_v, d_lp, f_p, f_v, f_lp = args_
     t_ub, t_p_ub, e_ub, e_p_ub = forward(f_p, f_v, f_lp)
     t_gu, t_p_gu, e_gu, e_p_gu = decode(x_gn, d_p, d_v, d_lp)
-    return t_gu + t_p_gu + t_ub + t_p_ub, e_gu + e_p_gu + e_ub + e_p_ub
+    return np.mean([t_gu, t_ub]), np.mean([e_gu, e_ub])
 
 
 # Run Trigger
 if __name__ == '__main__':
     read_trajs = []
-    traj_files = [f'{ip_dir}{int(data_len / 1e6)}/{_h_a}/trajs/0.log' for _h_a in hcso_alphas]
+    traj_files = [f'{ip_dir}{int(data_len / 1e6)}_new/{_h_a}/trajs/0.log' for _h_a in hcso_alphas]
 
     for traj_file in traj_files:
         with open(traj_file, 'r') as file:
@@ -252,10 +286,11 @@ if __name__ == '__main__':
 
         read_trajs.append((file_p_star, file_v_star))
 
+    trajs = []
     num_trajs = len(read_trajs)
     x_u = tf.constant([500.0, 0.0], dtype=tf.float64)
-    x_f = tf.constant([0.0, -250.0], dtype=tf.float64)
-    x_g = tf.constant([-65.0, -622.0], dtype=tf.float64)
+    x_g = tf.constant([-611.0, 130.0], dtype=tf.float64)
+    x_f = tf.constant([-225.09, 124.05], dtype=tf.float64)
 
     f_hats = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
     deltas = tf.Variable(tf.zeros(shape=[num_trajs, ], dtype=tf.float64), dtype=tf.float64)
@@ -265,6 +300,8 @@ if __name__ == '__main__':
         h_alpha = hcso_alphas[traj_idx]
 
         p_star_, v_star_ = read_trajs[traj_idx]
+
+        trajs.append((p_star_, v_star_))
 
         midpoint = int(p_star_.shape[0] / 2)
 
@@ -280,7 +317,7 @@ if __name__ == '__main__':
 
         tf.compat.v1.assign(p_usages[traj_idx], s_nrg / s_time, validate_shape=True, use_locking=True)
 
-    p_star, v_star = read_trajs[tf.argmin(tf.abs(f_hats), axis=0)]
+    p_star, v_star = trajs[tf.argmin(tf.abs(f_hats), axis=0)]
 
     fn_d = interpolate.interp1d(hcso_alphas, deltas.numpy())
     fn_p = interpolate.interp1d(hcso_alphas, p_usages.numpy())
@@ -302,18 +339,8 @@ if __name__ == '__main__':
 
     vel_plot_data.append(graph_objs.Scatter(x=v_star.numpy(), y=v_star.numpy(), mode='markers'))
 
-    traj_plot_data.append(graph_objs.Scatterpolar(r=[np.linalg.norm(x_u)],
-                                                  theta=[np.arctan(x_u[1] / x_u[0]) * (180.0 / pi)],
-                                                  mode='markers', name='UAV Initial Position ' + str(x_u.numpy())))
-
-    traj_plot_data.append(graph_objs.Scatterpolar(r=[np.linalg.norm(x_g)],
-                                                  theta=[np.arctan(x_g[1] / x_g[0]) * (180.0 / pi)],
-                                                  mode='markers', name='GN Position ' + str(x_g.numpy())))
-
-    traj_plot_data.append(graph_objs.Scatterpolar(r=tf.norm(p_star, axis=1),
-                                                  theta=tf.multiply(180.0 / pi, tf.atan(tf.divide(p_star[:, 1],
-                                                                                                  p_star[:, 0]))),
-                                                  mode='markers', name='UAV Optimal Trajectory'))
+    traj_plot_data.append(graph_objs.Scatter(x=p_star[:, 0].numpy(), y=p_star[:, 1].numpy(),
+                                             mode='markers', name='UAV Optimal Trajectory'))
 
     vel_plot_layout = dict(title='Optimal HCSO-determined UAV Velocities',
                            xaxis=dict(title='v (in m/s)'), yaxis=dict(title='v (in m/s)'))
@@ -323,8 +350,8 @@ if __name__ == '__main__':
 
     fig_v = dict(data=vel_plot_data, layout=vel_plot_layout)
     fig_t = dict(data=traj_plot_data, layout=traj_plot_layout)
-    fig_url_v = plotly.plotly.plot(fig, filename='HCSO_UAV_Velocity', auto_open=False)
-    fig_url_t = plotly.plotly.plot(fig, filename='HCSO_UAV_Trajectory', auto_open=False)
+    fig_url_v = plotly.plotly.plot(fig_v, filename='HCSO_UAV_Velocity', auto_open=False)
+    fig_url_t = plotly.plotly.plot(fig_t, filename='HCSO_UAV_Trajectory', auto_open=False)
 
     print('[INFO] HCSOVisualizations main: The plot of the optimal HCSO UAV trajectory '
           f'for the GN at {x_g.numpy()} [m, m], with Initial UAV Position = {x_u.numpy()} '

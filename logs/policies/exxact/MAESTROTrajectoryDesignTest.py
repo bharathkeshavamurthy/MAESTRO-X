@@ -146,7 +146,7 @@ REFERENCE_SNR_AT_1_METER = linear((5e6 * 40) / CHANNEL_BANDWIDTH)
 HCSO_METRIC_ALPHA = 1.0  # 0.0, 0.1, 0.2, ..., 1.0
 
 # The data payload size for this evaluation ($L$) in bits
-DATA_PAYLOAD_SIZE = 10e6  # 1e6, 10e6, 100e6
+DATA_PAYLOAD_SIZE = 100e6  # 1e6, 10e6, 100e6
 
 # The max number of concurrent workers allowed in this evaluation
 NUMBER_OF_WORKERS = 1024
@@ -164,7 +164,7 @@ CSO_MINIMUM_VELOCITY_VALUE = 0.0
 MAXIMUM_TRAJECTORY_SEGMENTS = 32
 
 # The output directory in which the logs from this evaluation have to be logged
-OUTPUT_DIR = f'../../../logs/policies/{int(DATA_PAYLOAD_SIZE / 1e6)}_new/{HCSO_METRIC_ALPHA}/trajs/'
+OUTPUT_DIR = f'../../../logs/policies/{int(DATA_PAYLOAD_SIZE / 1e6)}/{HCSO_METRIC_ALPHA}/trajs/'
 
 # The tolerance value for the bisection method to find the optimal value of $Z$ for rate adaptation
 BISECTION_METHOD_TOLERANCE = 1e-3
@@ -728,9 +728,9 @@ if __name__ == '__main__':
 
     r_u_ = comm_action
     r_u, r_gn, psi = comm_state
-    x_init = tf.constant([[500.0, 0.0]], dtype=tf.float64)
-    x_final = tf.constant([[177.0, 177.0]], dtype=tf.float64)
+    x_init = tf.constant([[177.0, 177.0]], dtype=tf.float64)
     x_gn = tf.constant([[193.0, 594.0]], dtype=tf.float64)
+    x_final = tf.constant([[0.0, 0.0]], dtype=tf.float64)
 
     o_trajs = tf.Variable(tf.zeros(shape=[INTERPOLATION_FACTOR * MAXIMUM_TRAJECTORY_SEGMENTS, 2],
                                    dtype=tf.float64), dtype=tf.float64)

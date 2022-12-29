@@ -724,13 +724,13 @@ if __name__ == '__main__':
           f'Data Payload Size [L] = {data_payload_size / 1e6} Mb | HCSO Metric [alpha] = {h_alpha}.')
 
     comm_action = 250.0
-    comm_state = [500.0, 625.0, 80.0 * (np.pi / 180.0)]
+    comm_state = [500.0, 625.0, 120.0 * (np.pi / 180.0)]
 
     r_u_ = comm_action
     r_u, r_gn, psi = comm_state
-    x_init = tf.constant([[500.0, 0.0]], dtype=tf.float64)
-    x_final = tf.constant([[177.0, 177.0]], dtype=tf.float64)
-    x_gn = tf.constant([[193.0, 594.0]], dtype=tf.float64)
+    x_init = tf.constant([[-225.09, 124.05]], dtype=tf.float64)
+    x_final = tf.constant([[0.0, 0.0]], dtype=tf.float64)
+    x_gn = tf.constant([[-611.0, 130.0]], dtype=tf.float64)
 
     o_trajs = tf.Variable(tf.zeros(shape=[INTERPOLATION_FACTOR * MAXIMUM_TRAJECTORY_SEGMENTS, 2],
                                    dtype=tf.float64), dtype=tf.float64)
