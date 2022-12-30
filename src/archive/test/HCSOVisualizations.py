@@ -260,7 +260,7 @@ def service(x_gn, *args_):
     d_p, d_v, d_lp, f_p, f_v, f_lp = args_
     t_ub, t_p_ub, e_ub, e_p_ub = forward(f_p, f_v, f_lp)
     t_gu, t_p_gu, e_gu, e_p_gu = decode(x_gn, d_p, d_v, d_lp)
-    return np.mean([t_gu, t_ub]), np.mean([e_gu, e_ub])
+    return t_gu + t_p_gu + t_ub + t_p_ub, e_gu + e_p_gu + e_ub + e_p_ub
 
 
 # Run Trigger
