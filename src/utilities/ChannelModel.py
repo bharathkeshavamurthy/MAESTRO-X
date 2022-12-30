@@ -221,7 +221,7 @@ if __name__ == '__main__':
     delay_100Mb = tf.constant(100e6, dtype=tf.float64) / r_avg
 
     plot_trace_avg = graph_objs.Scatter(x=x_vals, y=y_avg, mode=PLOTLY_LINES_MARKERS_MODE)
-    plot_layout_avg = dict(title=f'[{link_name}] Link | Rate Adapted Average Throughput in Mbps',
+    plot_layout_avg = dict(title=f'{link_name} Link | Rate Adapted Average Throughput in Mbps',
                            xaxis=dict(title='Tx-Rx Distance in m (projected at ground level)', autorange=True),
                            yaxis=dict(title=f'{link_name} Average Throughput in Mbps', type='log', autorange=True))
 
@@ -233,7 +233,7 @@ if __name__ == '__main__':
     plot_trace_delay_10Mb = graph_objs.Scatter(x=x_vals, y=delay_10Mb, name='10 Mb', mode=PLOTLY_LINES_MARKERS_MODE)
     plot_trace_delay_100Mb = graph_objs.Scatter(x=x_vals, y=delay_100Mb, name='100 Mb', mode=PLOTLY_LINES_MARKERS_MODE)
 
-    plot_layout_delay = dict(title=f'[{link_name}] | Average Delays',
+    plot_layout_delay = dict(title=f'{link_name} | Average Delays',
                              yaxis=dict(title=f'{link_name} Average Delay in seconds', autorange=True),
                              xaxis=dict(title='Tx-Rx Distance in m (projected at ground level)', autorange=True))
 
