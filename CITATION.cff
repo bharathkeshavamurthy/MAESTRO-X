@@ -7,8 +7,8 @@ authors:
 - family-names: "Keshavamurthy"
   given-names: "Bharath"
   orcid: "https://orcid.org/0000-0002-5931-7622"
-title: "MAESTRO-X: Distributed Orchestration of Rotary-Wing UAV Relay Swarms via SMDPs"
-version: v1.0
-doi: 10.5281/zenodo.6450454
-date-released: 2022-04-11
+title: "TCCN | MAESTRO-X: Distributed Orchestration of Rotary-Wing UAV Relay Swarms"
+version: v2.0
+doi: 10.5281/zenodo.7545989
+date-released: 2023-01-17
 url: "https://github.com/bharathkeshavamurthy/MAESTRO-X"
