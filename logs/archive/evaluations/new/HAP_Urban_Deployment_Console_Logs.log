@@ -1,0 +1,59 @@
+Rate Factor = 1
+
+C:\Users\bkeshav1\Workspaces\Odin\src\uav-mobility\venv\Scripts\python.exe C:/Users/bkeshav1/Workspaces/MAESTRO-X/src/evaluations/heuristics/ReferenceModels.py
+[INFO] LinkPerformance Termination: Tearing things down - Error Type = None | Error Value = None | Traceback = None.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 1.0 Mb | Average Comm Delay = 1.1596492480342702 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 1.0 Mb | Average Wait Delay = 134.8800868269724 seconds.
+[INFO] ReferenceModels HAP simulate_ops: All requests served by HAP | No UAV Relay | M/G/8 queuing at the data channels | Payload Length = 1.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 136.03973607500666 seconds.
+
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 10.0 Mb | Average Comm Delay = 11.598620862595071 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 10.0 Mb | Average Wait Delay = 4219.700344841497 seconds.
+[INFO] ReferenceModels HAP simulate_ops: All requests served by HAP | No UAV Relay | M/G/8 queuing at the data channels | Payload Length = 10.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 4231.298965704093 seconds.
+
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 100.0 Mb | Average Comm Delay = 115.79578697061059 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 100.0 Mb | Average Wait Delay = 54244.24511058419 seconds.
+[INFO] ReferenceModels HAP simulate_ops: All requests served by HAP | No UAV Relay | M/G/8 queuing at the data channels | Payload Length = 100.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 54360.040897554805 seconds.
+
+Process finished with exit code 0
+
+
+--
+
+Rate Factor = 2
+
+C:\Users\bkeshav1\Workspaces\Odin\src\uav-mobility\venv\Scripts\python.exe C:/Users/bkeshav1/Workspaces/MAESTRO-X/src/evaluations/heuristics/ReferenceModels.py
+[INFO] LinkPerformance Termination: Tearing things down - Error Type = None | Error Value = None | Traceback = None.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 1.0 Mb | Average Comm Delay = 1.15964924803427 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 1.0 Mb | Average Wait Delay = 429.4284584316792 seconds.
+[INFO] ReferenceModels HAP simulate_ops: All requests served by HAP | No UAV Relay | M/G/8 queuing at the data channels | Payload Length = 1.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 430.58810767971335 seconds.
+
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 10.0 Mb | Average Comm Delay = 11.59862086259507 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 10.0 Mb | Average Wait Delay = 5732.044511113306 seconds.
+[INFO] ReferenceModels HAP simulate_ops: All requests served by HAP | No UAV Relay | M/G/8 queuing at the data channels | Payload Length = 10.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 5743.643131975899 seconds.
+
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 100.0 Mb | Average Comm Delay = 115.79578697061059 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 100.0 Mb | Average Wait Delay = 63279.71538812742 seconds.
+[INFO] ReferenceModels HAP simulate_ops: All requests served by HAP | No UAV Relay | M/G/8 queuing at the data channels | Payload Length = 100.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 63395.511175098036 seconds.
+
+Process finished with exit code 0
+
+
+--
+
+Rate Factor = 3
+
+C:\Users\bkeshav1\Workspaces\Odin\src\uav-mobility\venv\Scripts\python.exe C:/Users/bkeshav1/Workspaces/MAESTRO-X/src/evaluations/heuristics/ReferenceModels.py
+[INFO] LinkPerformance Termination: Tearing things down - Error Type = None | Error Value = None | Traceback = None.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 1.0 Mb | Average Comm Delay = 1.15964924803427 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 1.0 Mb | Average Wait Delay = 527.6382635023558 seconds.
+[INFO] ReferenceModels HAP simulate_ops: All requests served by HAP | No UAV Relay | M/G/8 queuing at the data channels | Payload Length = 1.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 528.7979127503902 seconds.
+
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 10.0 Mb | Average Comm Delay = 11.59862086259507 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 10.0 Mb | Average Wait Delay = 6236.148304194403 seconds.
+[INFO] ReferenceModels HAP simulate_ops: All requests served by HAP | No UAV Relay | M/G/8 queuing at the data channels | Payload Length = 10.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 6247.746925056998 seconds.
+
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 100.0 Mb | Average Comm Delay = 115.79578697061059 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 100.0 Mb | Average Wait Delay = 66291.42680510462 seconds.
+[INFO] ReferenceModels HAP simulate_ops: All requests served by HAP | No UAV Relay | M/G/8 queuing at the data channels | Payload Length = 100.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 66407.22259207524 seconds.
+
+Process finished with exit code 0

@@ -1,0 +1,15 @@
+With L=10Mb, 2 UAVs, the delay is ~1s. Assuming idealistically that the system can serve 8 users simultaneously (2uAvs each with 4 data channels), the overall rate that could be sustained is of 8 requests per second, i.e. 480 requests per minute
+
+thats of course idealistic. I think we could aim for a request rate of Lambda=100 Req/min based on a heavy load condition.
+
+That is 250x larger than your current lightly loaded rate of lambda=0.4 req/minute (2 UAV case)
+
+so.. to keep the same generation rate per uav, but scaling 250x, the number of GNs for a heavily loaded system should be 30*250=7500 GNs.
+
+roughly, that means 1 GN every 20m or so distance
+
+which is not that unreasonable
+
+each generating 100/7500 req/min
+
+(~1 req per hour)

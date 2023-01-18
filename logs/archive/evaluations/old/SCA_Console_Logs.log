@@ -1,0 +1,76 @@
+1 UAV
+
+C:\Users\kesha\Workspaces\venv\Scripts\python.exe "C:\Program Files\JetBrains\PyCharm Community Edition 2019.3.4\plugins\python-ce\helpers\pydev\pydevd.py" --multiproc --qt-support=auto --client 127.0.0.1 --port 63203 --file C:/Users/kesha/Workspaces/Odin/src/uav-mobility/soa-evaluations/SCAEvaluation.py
+Connected to pydev debugger (build 213.6777.50)
+UAV Index = 0 | Primal Value = 78051.10408377876 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 35251.34682341089 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 20735.494862107204 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 14471.59731927145 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 11198.522567548578 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 9607.860101729808 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 8754.550993786226 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 8759.773240058712 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 8543.982177600094 | Problem Status = optimal_inaccurate
+
+s_avg = 10.028598114015484 | w_avg = 1.2814812395415651
+
+2 UAVs
+C:\Users\kesha\Workspaces\venv\Scripts\python.exe "C:\Program Files\JetBrains\PyCharm Community Edition 2019.3.4\plugins\python-ce\helpers\pydev\pydevd.py" --multiproc --qt-support=auto --client 127.0.0.1 --port 63239 --file C:/Users/kesha/Workspaces/Odin/src/uav-mobility/soa-evaluations/SCAEvaluation.py
+Connected to pydev debugger (build 213.6777.50)
+UAV Index = 0 | Primal Value = 31490.242878259352 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 19133.120054716415 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 12463.084804976696 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 11071.162732262708 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 10205.189075115106 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 9439.064211688514 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 9175.127250073157 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 8974.29458120199 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 8647.313025898586 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 8798.67511460489 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 8603.151685222438 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 30536.316827917537 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 13831.524077505725 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 11941.295366690849 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 7408.001575713822 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 6066.205238157704 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 6004.547978312768 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 5994.793300950358 | Problem Status = optimal
+
+s_avg = 0.8014525233786378 | w_avg = 0.0
+
+3 UAVs
+
+C:\Users\kesha\Workspaces\venv\Scripts\python.exe "C:\Program Files\JetBrains\PyCharm Community Edition 2019.3.4\plugins\python-ce\helpers\pydev\pydevd.py" --multiproc --qt-support=auto --client 127.0.0.1 --port 63276 --file C:/Users/kesha/Workspaces/Odin/src/uav-mobility/soa-evaluations/SCAEvaluation.py
+Connected to pydev debugger (build 213.6777.50)
+UAV Index = 0 | Primal Value = 111632.27491786837 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 52308.58893424099 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 26412.860281863377 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 15955.018288308458 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 12575.235386726968 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 11528.001030488724 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 10226.1583760072 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 8778.812407078303 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 8717.251418923563 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 8158.425743345159 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 8593.14353636461 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 8393.684050942464 | Problem Status = optimal_inaccurate
+UAV Index = 0 | Primal Value = 8468.77689715555 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 52657.08581978856 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 31431.764317167108 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 14461.602147074826 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 11723.192620449116 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 6380.903308949894 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 6075.364477754307 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 6096.2438460771755 | Problem Status = optimal_inaccurate
+UAV Index = 1 | Primal Value = 6100.871509177066 | Problem Status = optimal_inaccurate
+UAV Index = 2 | Primal Value = 31172.14257203961 | Problem Status = optimal_inaccurate
+UAV Index = 2 | Primal Value = 28303.701464212972 | Problem Status = optimal_inaccurate
+UAV Index = 2 | Primal Value = 12872.692721227557 | Problem Status = optimal_inaccurate
+UAV Index = 2 | Primal Value = 9709.6194411168 | Problem Status = optimal_inaccurate
+UAV Index = 2 | Primal Value = 8817.793344196889 | Problem Status = optimal_inaccurate
+UAV Index = 2 | Primal Value = 8243.67246034021 | Problem Status = optimal_inaccurate
+UAV Index = 2 | Primal Value = 7773.98394924173 | Problem Status = optimal_inaccurate
+UAV Index = 2 | Primal Value = 7898.435097153395 | Problem Status = optimal_inaccurate
+UAV Index = 2 | Primal Value = 7833.442965512554 | Problem Status = optimal_inaccurate
+
+s_avg = 0.8519913594057111 | w_avg = 0.0

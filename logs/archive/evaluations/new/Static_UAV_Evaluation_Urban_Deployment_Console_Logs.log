@@ -1,0 +1,59 @@
+Rate Factor = Number of UAVs = 1
+
+C:\Users\bkeshav1\Workspaces\Odin\src\uav-mobility\venv\Scripts\python.exe C:/Users/bkeshav1/Workspaces/MAESTRO-X/src/evaluations/heuristics/ReferenceModels.py
+[INFO] LinkPerformance Termination: Tearing things down - Error Type = None | Error Value = None | Traceback = None.
+[DEBUG] ReferenceModels UAV simulate_ops: Payload Size = 1.0 Mb | Average Comm Delay = 0.23472809055659336 seconds.
+[DEBUG] ReferenceModels UAV simulate_ops: Payload Size = 1.0 Mb | Average Wait Delay = 7.319656087869823e-05 seconds.
+[INFO] ReferenceModels UAV simulate_ops: Decode-Forward with UAV-relay | Single UAV Relay | M/G/8 queuing at the data channels | Payload Length = 1.0 Mb | UAV Power Consumption = 1.3713215 kW | Average Total Service Delay (Wait + Comm) = 0.23480128711747206 seconds.
+
+[DEBUG] ReferenceModels UAV simulate_ops: Payload Size = 10.0 Mb | Average Comm Delay = 2.349867450195423 seconds.
+[DEBUG] ReferenceModels UAV simulate_ops: Payload Size = 10.0 Mb | Average Wait Delay = 0.04600893189101834 seconds.
+[INFO] ReferenceModels UAV simulate_ops: Decode-Forward with UAV-relay | Single UAV Relay | M/G/8 queuing at the data channels | Payload Length = 10.0 Mb | UAV Power Consumption = 1.3713215 kW | Average Total Service Delay (Wait + Comm) = 2.3958763820864415 seconds.
+
+[DEBUG] ReferenceModels UAV simulate_ops: Payload Size = 100.0 Mb | Average Comm Delay = 23.29320719903118 seconds.
+[DEBUG] ReferenceModels UAV simulate_ops: Payload Size = 100.0 Mb | Average Wait Delay = 6.249136012706168 seconds.
+[INFO] ReferenceModels UAV simulate_ops: Decode-Forward with UAV-relay | Single UAV Relay | M/G/8 queuing at the data channels | Payload Length = 100.0 Mb | UAV Power Consumption = 1.3713215 kW | Average Total Service Delay (Wait + Comm) = 29.542343211737347 seconds.
+
+Process finished with exit code 0
+
+
+--
+
+Rate Factor = Number of UAVs = 2
+
+C:\Users\bkeshav1\Workspaces\Odin\src\uav-mobility\venv\Scripts\python.exe C:/Users/bkeshav1/Workspaces/MAESTRO-X/src/evaluations/heuristics/ReferenceModels.py
+[INFO] LinkPerformance Termination: Tearing things down - Error Type = None | Error Value = None | Traceback = None.
+[DEBUG] ReferenceModels mUAV simulate_ops: Payload Size = 1.0 Mb | Average Comm Delay = 0.2703182899547916 seconds.
+[DEBUG] ReferenceModels mUAV simulate_ops: Payload Size = 1.0 Mb | Average Wait Delay = 0.012815704754082327 seconds.
+[INFO] ReferenceModels mUAV simulate_ops: Decode-Forward with UAV-relays | 2 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 1.0 Mb | UAV Power Consumption = 1.3713215 kW | Average Total Service Delay (Wait + Comm) = 0.28313399470887396 seconds.
+
+[DEBUG] ReferenceModels mUAV simulate_ops: Payload Size = 10.0 Mb | Average Comm Delay = 2.7003224358081788 seconds.
+[DEBUG] ReferenceModels mUAV simulate_ops: Payload Size = 10.0 Mb | Average Wait Delay = 175.42123307848473 seconds.
+[INFO] ReferenceModels mUAV simulate_ops: Decode-Forward with UAV-relays | 2 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 10.0 Mb | UAV Power Consumption = 1.3713215 kW | Average Total Service Delay (Wait + Comm) = 178.12155551429288 seconds.
+
+[DEBUG] ReferenceModels mUAV simulate_ops: Payload Size = 100.0 Mb | Average Comm Delay = 27.042142161698383 seconds.
+[DEBUG] ReferenceModels mUAV simulate_ops: Payload Size = 100.0 Mb | Average Wait Delay = 7839.515007281867 seconds.
+[INFO] ReferenceModels mUAV simulate_ops: Decode-Forward with UAV-relays | 2 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 100.0 Mb | UAV Power Consumption = 1.3713215 kW | Average Total Service Delay (Wait + Comm) = 7866.557149443567 seconds.
+
+Process finished with exit code 0
+
+
+--
+
+Rate Factor = Number of UAVs = 3
+
+C:\Users\bkeshav1\Workspaces\Odin\src\uav-mobility\venv\Scripts\python.exe C:/Users/bkeshav1/Workspaces/MAESTRO-X/src/evaluations/heuristics/ReferenceModels.py
+[INFO] LinkPerformance Termination: Tearing things down - Error Type = None | Error Value = None | Traceback = None.
+[DEBUG] ReferenceModels mUAV simulate_ops: Payload Size = 1.0 Mb | Average Comm Delay = 1.1032607302026356 seconds.
+[DEBUG] ReferenceModels mUAV simulate_ops: Payload Size = 1.0 Mb | Average Wait Delay = 490.6181984370725 seconds.
+[INFO] ReferenceModels mUAV simulate_ops: Decode-Forward with UAV-relays | 3 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 1.0 Mb | UAV Power Consumption = 1.3713215 kW | Average Total Service Delay (Wait + Comm) = 491.7214591672752 seconds.
+
+[DEBUG] ReferenceModels mUAV simulate_ops: Payload Size = 10.0 Mb | Average Comm Delay = 11.157982851381172 seconds.
+[DEBUG] ReferenceModels mUAV simulate_ops: Payload Size = 10.0 Mb | Average Wait Delay = 5926.918999224509 seconds.
+[INFO] ReferenceModels mUAV simulate_ops: Decode-Forward with UAV-relays | 3 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 10.0 Mb | UAV Power Consumption = 1.3713215 kW | Average Total Service Delay (Wait + Comm) = 5938.076982075891 seconds.
+
+[DEBUG] ReferenceModels mUAV simulate_ops: Payload Size = 100.0 Mb | Average Comm Delay = 111.94777090060816 seconds.
+[DEBUG] ReferenceModels mUAV simulate_ops: Payload Size = 100.0 Mb | Average Wait Delay = 63814.21503473454 seconds.
+[INFO] ReferenceModels mUAV simulate_ops: Decode-Forward with UAV-relays | 3 UAV-relays | M/G/8 queuing at the data channels | Payload Size = 100.0 Mb | UAV Power Consumption = 1.3713215 kW | Average Total Service Delay (Wait + Comm) = 63926.16280563513 seconds.
+
+Process finished with exit code 0

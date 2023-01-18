@@ -1,0 +1,59 @@
+Rate Factor = Number of UAVs = 1
+
+C:\Users\kesha\Workspaces\venv\Scripts\python.exe C:\Users\kesha\Workspaces\MAESTRO-X\src\evaluations\state-of-the-art\SCAEvaluation.py
+
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 1.0 Mb | Average Wait Delay = 268.4490379400897 seconds.
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 1.0 Mb | Average Comm Delay = 1.3743835471628398 seconds.
+[DEBUG] ADMMEvaluation evaluate: 1 UAV-relays | M/G/8 queuing | Payload Size = 1.0 Mb | Average Total Service Delay (Wait + Comm) = 269.8234214872525 seconds.
+
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 10.0 Mb | Average Wait Delay = 5602.12328701811 seconds.
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 10.0 Mb | Average Comm Delay = 13.743835471628394 seconds.
+[DEBUG] ADMMEvaluation evaluate: 1 UAV-relays | M/G/8 queuing | Payload Size = 10.0 Mb | Average Total Service Delay (Wait + Comm) = 5615.867122489739 seconds.
+
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 100.0 Mb | Average Wait Delay = 67993.73832541009 seconds.
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 100.0 Mb | Average Comm Delay = 137.438354716284 seconds.
+[DEBUG] ADMMEvaluation evaluate: 1 UAV-relays | M/G/8 queuing | Payload Size = 100.0 Mb | Average Total Service Delay (Wait + Comm) = 68131.17668012639 seconds.
+
+Process finished with exit code 0
+
+
+--
+
+Rate Factor = Number of UAVs = 2
+
+C:\Users\kesha\Workspaces\venv\Scripts\python.exe C:\Users\kesha\Workspaces\MAESTRO-X\src\evaluations\state-of-the-art\SCAEvaluation.py
+
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 1.0 Mb | Average Wait Delay = 526.1559718145543 seconds.
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 1.0 Mb | Average Comm Delay = 1.3147840272670321 seconds.
+[DEBUG] ADMMEvaluation evaluate: 2 UAV-relays | M/G/8 queuing | Payload Size = 1.0 Mb | Average Total Service Delay (Wait + Comm) = 527.4707558418213 seconds.
+
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 10.0 Mb | Average Wait Delay = 6720.375267775629 seconds.
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 10.0 Mb | Average Comm Delay = 13.147840272670324 seconds.
+[DEBUG] ADMMEvaluation evaluate: 2 UAV-relays | M/G/8 queuing | Payload Size = 10.0 Mb | Average Total Service Delay (Wait + Comm) = 6733.523108048301 seconds.
+
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 100.0 Mb | Average Wait Delay = 73190.00540537009 seconds.
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 100.0 Mb | Average Comm Delay = 131.47840272670325 seconds.
+[DEBUG] ADMMEvaluation evaluate: 2 UAV-relays | M/G/8 queuing | Payload Size = 100.0 Mb | Average Total Service Delay (Wait + Comm) = 73321.48380809679 seconds.
+
+Process finished with exit code 0
+
+
+--
+
+Rate Factor = Number of UAVs = 3
+
+C:\Users\kesha\Workspaces\venv\Scripts\python.exe C:\Users\kesha\Workspaces\MAESTRO-X\src\evaluations\state-of-the-art\SCAEvaluation.py
+
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 1.0 Mb | Average Wait Delay = 578.6413733426267 seconds.
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 1.0 Mb | Average Comm Delay = 1.2414079370104747 seconds.
+[DEBUG] ADMMEvaluation evaluate: 3 UAV-relays | M/G/8 queuing | Payload Size = 1.0 Mb | Average Total Service Delay (Wait + Comm) = 579.8827812796371 seconds.
+
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 10.0 Mb | Average Wait Delay = 6758.958578292355 seconds.
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 10.0 Mb | Average Comm Delay = 12.414079370104748 seconds.
+[DEBUG] ADMMEvaluation evaluate: 3 UAV-relays | M/G/8 queuing | Payload Size = 10.0 Mb | Average Total Service Delay (Wait + Comm) = 6771.37265766246 seconds.
+
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 100.0 Mb | Average Wait Delay = 71580.42093466778 seconds.
+[DEBUG] ADMMEvaluation evaluate: Payload Size = 100.0 Mb | Average Comm Delay = 124.14079370104743 seconds.
+[DEBUG] ADMMEvaluation evaluate: 3 UAV-relays | M/G/8 queuing | Payload Size = 100.0 Mb | Average Total Service Delay (Wait + Comm) = 71704.56172836883 seconds.
+
+Process finished with exit code 0

@@ -1,0 +1,29 @@
+C:\Users\bkeshav1\Workspaces\Odin\src\uav-mobility\venv\Scripts\python.exe "C:\Program Files\JetBrains\PyCharm Community Edition 2021.2.2\plugins\python-ce\helpers\pydev\pydevd.py" --multiproc --qt-support=auto --client 127.0.0.1 --port 64598 --file C:/Users/bkeshav1/Workspaces/MAESTRO-X/src/evaluations/heuristics/ReferenceModels.py
+Connected to pydev debugger (build 212.5284.44)
+[INFO] LinkPerformance Termination: Tearing things down - Error Type = None | Error Value = None | Traceback = None.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 1.0 Mb | Average Comm Delay = 156.73372083959305 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 1.0 Mb | Average Wait Delay (Channel) = 53.01387887814841 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 1.0 Mb | Average Wait Delay (Transceiver) = 0.0 seconds.
+[INFO] ReferenceModels BS simulate_ops: All requests served by the BS | No UAV Relay | M/G/4 and M/G/10 | Payload Length = [1.0] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | Average Total Service Delay (Wait + Comm) = 209.74759971774145 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 10.0 Mb | Average Comm Delay = 1567.3372083959305 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 10.0 Mb | Average Wait Delay (Channel) = 463631.66036264383 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 10.0 Mb | Average Wait Delay (Transceiver) = 0.0 seconds.
+[INFO] ReferenceModels BS simulate_ops: All requests served by the BS | No UAV Relay | M/G/4 and M/G/10 | Payload Length = [10.0] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | Average Total Service Delay (Wait + Comm) = 465198.99757103977 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 100.0 Mb | Average Comm Delay = 15673.372083959306 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 100.0 Mb | Average Wait Delay (Channel) = 10509726.911736898 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 100.0 Mb | Average Wait Delay (Transceiver) = 0.0 seconds.
+[INFO] ReferenceModels BS simulate_ops: All requests served by the BS | No UAV Relay | M/G/4 and M/G/10 | Payload Length = [100.0] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | Average Total Service Delay (Wait + Comm) = 10525400.283820856 seconds.
+
+[INFO] LinkPerformance Termination: Tearing things down - Error Type = None | Error Value = None | Traceback = None.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 1.0 Mb | Average Comm Delay = 6.206961535350915 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 1.0 Mb | Average Wait Delay (Channel) = 0.0 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 1.0 Mb | Average Wait Delay (Transceiver) = 0.0 seconds.
+[INFO] ReferenceModels HAP simulate_ops: All requests served by the HAP | No UAV Relay | M/G/4 and M/G/10 | Payload Length = [1.0] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | Average Total Service Delay (Wait + Comm) = 6.206961535350915 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 10.0 Mb | Average Comm Delay = 62.06961535350914 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 10.0 Mb | Average Wait Delay (Channel) = 0.0 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 10.0 Mb | Average Wait Delay (Transceiver) = 0.0 seconds.
+[INFO] ReferenceModels HAP simulate_ops: All requests served by the HAP | No UAV Relay | M/G/4 and M/G/10 | Payload Length = [10.0] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | Average Total Service Delay (Wait + Comm) = 62.06961535350914 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 100.0 Mb | Average Comm Delay = 620.6961535350915 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 100.0 Mb | Average Wait Delay (Channel) = 0.04707633584593423 seconds.
+[DEBUG] ReferenceModels HAP simulate_ops: Payload Size = 100.0 Mb | Average Wait Delay (Transceiver) = 0.0 seconds.
+[INFO] ReferenceModels HAP simulate_ops: All requests served by the HAP | No UAV Relay | M/G/4 and M/G/10 | Payload Length = [100.0] Mb | Avg UAV Power Consumption Constraint = [N/A] kW | Average Total Service Delay (Wait + Comm) = 620.7432298709374 seconds.

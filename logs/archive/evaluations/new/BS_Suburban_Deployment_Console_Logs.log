@@ -1,0 +1,59 @@
+Rate Factor = 1
+
+C:\Users\bkeshav1\Workspaces\Odin\src\uav-mobility\venv\Scripts\python.exe C:/Users/bkeshav1/Workspaces/MAESTRO-X/src/evaluations/heuristics/ReferenceModels.py
+[INFO] LinkPerformance Termination: Tearing things down - Error Type = None | Error Value = None | Traceback = None.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 1.0 Mb | Average Comm Delay = 165.67830901920635 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 1.0 Mb | Average Wait Delay = 200652.6833800801 seconds.
+[INFO] ReferenceModels BS simulate_ops: All requests served by BS | No UAV Relay | M/G/4 queuing at the data channels | Payload Length = 1.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 200818.36168909926 seconds.
+
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 10.0 Mb | Average Comm Delay = 1656.996010718091 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 10.0 Mb | Average Wait Delay = 2042325.3382892276 seconds.
+[INFO] ReferenceModels BS simulate_ops: All requests served by BS | No UAV Relay | M/G/4 queuing at the data channels | Payload Length = 10.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 2043982.3342999455 seconds.
+
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 100.0 Mb | Average Comm Delay = 16276.595214755744 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 100.0 Mb | Average Wait Delay = 20136745.58088224 seconds.
+[INFO] ReferenceModels BS simulate_ops: All requests served by BS | No UAV Relay | M/G/4 queuing at the data channels | Payload Length = 100.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 20153022.17609699 seconds.
+
+Process finished with exit code 0
+
+
+--
+
+Rate Factor = 2
+
+C:\Users\bkeshav1\Workspaces\Odin\src\uav-mobility\venv\Scripts\python.exe C:/Users/bkeshav1/Workspaces/MAESTRO-X/src/evaluations/heuristics/ReferenceModels.py
+[INFO] LinkPerformance Termination: Tearing things down - Error Type = None | Error Value = None | Traceback = None.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 1.0 Mb | Average Comm Delay = 165.67830901920638 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 1.0 Mb | Average Wait Delay = 203597.4385518425 seconds.
+[INFO] ReferenceModels BS simulate_ops: All requests served by BS | No UAV Relay | M/G/4 queuing at the data channels | Payload Length = 1.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 203763.1168608617 seconds.
+
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 10.0 Mb | Average Comm Delay = 1656.996010718091 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 10.0 Mb | Average Wait Delay = 2057536.9239013253 seconds.
+[INFO] ReferenceModels BS simulate_ops: All requests served by BS | No UAV Relay | M/G/4 queuing at the data channels | Payload Length = 10.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 2059193.9199120435 seconds.
+
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 100.0 Mb | Average Comm Delay = 16276.595214755744 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 100.0 Mb | Average Wait Delay = 20227134.885534957 seconds.
+[INFO] ReferenceModels BS simulate_ops: All requests served by BS | No UAV Relay | M/G/4 queuing at the data channels | Payload Length = 100.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 20243411.48074971 seconds.
+
+Process finished with exit code 0
+
+
+--
+
+Rate Factor = 3
+
+C:\Users\bkeshav1\Workspaces\Odin\src\uav-mobility\venv\Scripts\python.exe C:/Users/bkeshav1/Workspaces/MAESTRO-X/src/evaluations/heuristics/ReferenceModels.py
+[INFO] LinkPerformance Termination: Tearing things down - Error Type = None | Error Value = None | Traceback = None.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 1.0 Mb | Average Comm Delay = 165.67830901920638 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 1.0 Mb | Average Wait Delay = 204580.8209555792 seconds.
+[INFO] ReferenceModels BS simulate_ops: All requests served by BS | No UAV Relay | M/G/4 queuing at the data channels | Payload Length = 1.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 204746.49926459836 seconds.
+
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 10.0 Mb | Average Comm Delay = 1656.9960107180912 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 10.0 Mb | Average Wait Delay = 2062549.0872115449 seconds.
+[INFO] ReferenceModels BS simulate_ops: All requests served by BS | No UAV Relay | M/G/4 queuing at the data channels | Payload Length = 10.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 2064206.083222263 seconds.
+
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 100.0 Mb | Average Comm Delay = 16276.595214755744 seconds.
+[DEBUG] ReferenceModels BS simulate_ops: Payload Size = 100.0 Mb | Average Wait Delay = 20257331.79132039 seconds.
+[INFO] ReferenceModels BS simulate_ops: All requests served by BS | No UAV Relay | M/G/4 queuing at the data channels | Payload Length = 100.0 Mb | UAV Power Consumption = N/A kW | Average Total Service Delay (Wait + Comm) = 20273608.386535145 seconds.
+
+Process finished with exit code 0
