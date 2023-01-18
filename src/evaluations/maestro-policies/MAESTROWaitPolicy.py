@@ -10,9 +10,18 @@ Organization: School of Electrical & Computer Engineering, Purdue University, We
 Copyright (c) 2022. All Rights Reserved.
 """
 
+import os
+
+"""
+Configurations-I: Tensorflow logging
+"""
+os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
+
+import re
 import plotly
 import warnings
 import numpy as np
+import tensorflow as tf
 import plotly.graph_objs as go
 from numpy.random import choice
 from scipy.optimize import minimize
@@ -25,12 +34,12 @@ warnings.filterwarnings("ignore", category=RuntimeWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 """
-Configurations-I: Plotly API settings
+Configurations-II: Plotly API settings
 """
-plotly.tools.set_credentials_file(username='bkeshav1', api_key='BCvYNi3LNNXgfpDGEpo0')
+plotly.tools.set_credentials_file(username='<User_Name>', api_key='<API_Key>')
 
 """
-Configurations-II: Simulation parameters
+Configurations-III: Simulation parameters
 """
 
 pi = np.pi
@@ -41,6 +50,7 @@ a, a_o, r_num, th_num, d_c = 1e3, 50.0, 25, 25, 1e-10
 th_us = np.linspace(0, 315.0, th_num, dtype=np.float64)
 r_us = np.linspace(a_o, a - a_o, r_num, dtype=np.float64)
 arr_rates_r = {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}
+base_ip_dir, policy_file_name = '../../../logs/policies/', 'wait.log'
 utip, v0, p1, p2, p3, v_min, v_max = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0
 p_avgs, th_c_num = np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64), int(1e4)
 
@@ -55,16 +65,6 @@ elif depl_env == 'suburban':
     arr_rates = arr_rates_m
 else:
     arr_rates = arr_rates_h
-
-''' 
-TODO: Read this as a tensor from the policy log file instead of hard-coding it from the cluster node
-'''
-data_lens_v_rs = {1e6: [7.5, 7.5, 7.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -27.5, -27.5, -27.5, -27.5,
-                        -27.5, -27.5, -33.3, -33.3, -33.3, -33.3, -33.3, -33.3, -38.0, -38.0, -38.0, -38.0],
-                  10e6: [7.5, 7.5, 7.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -27.5,
-                         -27.5, -27.5, -27.5, -27.5, -27.5, -27.5, -27.5, -27.5, -33.3, -33.3, -33.3, -33.3],
-                  100e6: [7.5, 7.5, 7.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5, -22.5,
-                          -22.5, -22.5, -22.5, -27.5, -27.5, -27.5, -27.5, -27.5, -27.5, -27.5, -27.5, -27.5]}
 
 """
 Utilities
@@ -82,6 +82,15 @@ def mobility_pwr(v):
 """
 Core operations
 """
+
+data_lens_v_rs = {}
+for d_l in data_lens:
+    ip_file = f'{base_ip_dir}{int(d_l / 1e6)}/{policy_file_name}'
+
+    with open(ip_file, 'r') as file:
+        # noinspection RegExpUnnecessaryNonCapturingGroup
+        data_lens_v_rs[d_l] = tf.strings.to_number(re.findall(r'[-+]?(?:\d*\.*\d+)',
+                                                              file.readline().strip()), tf.float64)
 
 
 def trace(i, r_u, th_u, v_r, nu, p_avg, d_00, d_01, r_us_):

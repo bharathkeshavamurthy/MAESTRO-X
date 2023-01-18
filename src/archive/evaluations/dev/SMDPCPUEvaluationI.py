@@ -53,8 +53,9 @@ from plotly.validators.scatter.marker import SymbolValidator
 Plotly API settings & instantiations
 """
 
-plotly.tools.set_credentials_file(username='bkeshava_gmail', api_key='TUpovjRUR1oN5zK85rsY')  # User Credentials
+plotly.tools.set_credentials_file(username='<User_Name>', api_key='<API_Key>')  # User Credentials
 raw_symbols = [val for i, val in enumerate(SymbolValidator().values) if (i % 2) == 1]  # Allowed marker symbols
+
 # noinspection SpellCheckingInspection
 colors = '''
     aliceblue, antiquewhite, aqua, aquamarine, azure,
@@ -764,11 +765,11 @@ class SMDPEvaluation(object):
         # Normal routine call
         return (self.POWER_PROFILE_CONSTANT_1 * (1 + ((3 * (uav_flying_velocity ** 2)) /
                                                       (self.ROTOR_BLADE_TIP_SPEED ** 2)))) + \
-               (self.POWER_PROFILE_CONSTANT_2 * ((((1 + ((uav_flying_velocity ** 4) /
-                                                         (4 * (self.MEAN_ROTOR_INDUCED_VELOCITY ** 4)))) ** 0.5) -
-                                                  ((uav_flying_velocity ** 2) /
-                                                   (2 * (self.MEAN_ROTOR_INDUCED_VELOCITY ** 2))))) ** 0.5) + \
-               (self.POWER_PROFILE_CONSTANT_3 * (uav_flying_velocity ** 3))
+            (self.POWER_PROFILE_CONSTANT_2 * ((((1 + ((uav_flying_velocity ** 4) /
+                                                      (4 * (self.MEAN_ROTOR_INDUCED_VELOCITY ** 4)))) ** 0.5) -
+                                               ((uav_flying_velocity ** 2) /
+                                                (2 * (self.MEAN_ROTOR_INDUCED_VELOCITY ** 2))))) ** 0.5) + \
+            (self.POWER_PROFILE_CONSTANT_3 * (uav_flying_velocity ** 3))
 
     # Auxiliary Descriptive Routine
     def __discretize_uav_radial_velocities(self, num_levels):

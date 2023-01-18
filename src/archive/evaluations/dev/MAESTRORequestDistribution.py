@@ -29,7 +29,7 @@ warnings.filterwarnings("ignore", category=UserWarning)
 warnings.filterwarnings("ignore", category=DeprecationWarning)
 
 # User Credentials
-plotly.tools.set_credentials_file(username='bkeshav1', api_key='wLYizSJgmQPTpcJ68Tva')
+plotly.tools.set_credentials_file(username='<User_Name>', api_key='<API_Key>')
 
 """
 CONFIGURATIONS-I: Deployment Model

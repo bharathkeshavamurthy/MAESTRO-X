@@ -51,9 +51,9 @@ bw_, ap, ap_, kp = bw / n_c, 2.0, 2.8, 0.2
 k_1, k_2, z_1, z_2 = 1.0, np.log(100) / 90.0, 9.61, 0.16
 sg_wsize1, sg_wsize2, sg_poly_order1, sg_poly_order2 = 5, 5, 3, 3
 hcso_alphas = [0.0, 0.1, 0.2, 0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0]
+plotly.tools.set_credentials_file(username='<User_Name>', api_key='<API_Key>')
 decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 utip, v0, p1, p2, p3, v_min, v_max = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0
-plotly.tools.set_credentials_file(username='bkeshav1', api_key='BCvYNi3LNNXgfpDGEpo0')
 snr_0, ra_tol, ra_conf, h_bs, h_u, h_gn = linear((5e6 * 40) / bw_), 1e-10, 10, 80.0, 200.0, 0.0
 data_len, p_avg = [1e6, 10e6, 100e6][1], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[1]
 

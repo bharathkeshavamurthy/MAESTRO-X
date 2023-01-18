@@ -31,6 +31,7 @@ Configurations-I: Tensorflow logging
 """
 os.environ['TF_CPP_MIN_LOG_LEVEL'] = '3'
 
+import re
 import warnings
 import numpy as np
 import tensorflow as tf
@@ -56,83 +57,48 @@ decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 """
 Configurations-II: Deployment settings | Extracted from policy on ASU ECEE EXXACT GPU cluster
 """
-
-scaling_factor, data_payload_sizes, number_of_workers = 10, [1e6, 10e6, 100e6], 1024
+ip_dir = '../../../logs/evaluations/'
+data_payload_sizes, number_of_workers = [1e6, 10e6, 100e6], 1024
 arrival_rates_r, n_uavs, uav_height, bs_height = {1e6: 5 / 60, 10e6: 1 / 60, 100e6: 1 / 360}, 3, 200.0, 80.0
 
 '''
 TODO: Read these directly from the policy file as tensors instead of hard-coding them from the cluster node
 '''
 
-''' GNs deployment '''
+''' GNs deployment | We treat the BS as GN #-1 to emulate the forward phase of the D&F protocol '''
 
-gn_heights = {-1: tf.constant(bs_height, dtype=tf.float64),
-              0: tf.constant(0.0, dtype=tf.float64), 1: tf.constant(0.0, dtype=tf.float64),
-              2: tf.constant(0.0, dtype=tf.float64), 3: tf.constant(0.0, dtype=tf.float64),
-              4: tf.constant(0.0, dtype=tf.float64), 5: tf.constant(0.0, dtype=tf.float64),
-              6: tf.constant(0.0, dtype=tf.float64), 7: tf.constant(0.0, dtype=tf.float64),
-              8: tf.constant(0.0, dtype=tf.float64), 9: tf.constant(0.0, dtype=tf.float64)}
+gn_positions = {}
+for gn_idx in range(-1, 10, 1):
+    ip_file = f'{ip_dir}{gn_idx}.log'
 
-gn_positions = {-1: tf.constant([0.0, 0.0], dtype=tf.float64),
-                0: tf.constant([0.0, 9.0], dtype=tf.float64), 1: tf.constant([4.0, 14.0], dtype=tf.float64),
-                2: tf.constant([9.0, 15.0], dtype=tf.float64), 3: tf.constant([14.0, 2.0], dtype=tf.float64),
-                4: tf.constant([14.0, 50.0], dtype=tf.float64), 5: tf.constant([20.0, 43.0], dtype=tf.float64),
-                6: tf.constant([42.0, 27.0], dtype=tf.float64), 7: tf.constant([42.0, 24.0], dtype=tf.float64),
-                8: tf.constant([47.0, 8.0], dtype=tf.float64), 9: tf.constant([48.0, 22.0], dtype=tf.float64)}
+    with open(ip_file, 'r') as file:
+        # noinspection RegExpUnnecessaryNonCapturingGroup
+        gn_positions[gn_idx] = tf.strings.to_number(re.findall(r'[-+]?(?:\d*\.*\d+)',
+                                                               file.readline().strip()), tf.float64)
 
-''' UAV(s) deployment '''
+''' UAV(s) schedules '''
 
-uav_0_trajectory = {2: tf.constant([[24.0, 24.0], [24.0, 23.0], [23.0, 23.0], [23.0, 22.0], [22.0, 22.0], [21.0, 22.0],
-                                    [20.0, 22.0], [19.0, 22.0], [19.0, 21.0], [18.0, 21.0], [17.0, 21.0], [17.0, 20.0],
-                                    [16.0, 20.0], [15.0, 20.0], [15.0, 19.0], [14.0, 19.0], [14.0, 18.0], [13.0, 18.0],
-                                    [13.0, 17.0], [12.0, 17.0], [11.0, 17.0], [10.0, 17.0]], dtype=tf.float64),
-                    1: tf.constant([[9.0, 17.0], [9.0, 16.0], [8.0, 16.0], [7.0, 16.0], [6.0, 16.0], [5.0, 16.0],
-                                    [4.0, 16.0], [4.0, 15.0]], dtype=tf.float64),
-                    0: tf.constant([[3.0, 15.0], [3.0, 14.0], [3.0, 13.0], [2.0, 13.0], [2.0, 12.0], [2.0, 11.0],
-                                    [2.0, 10.0], [2.0, 11.0], [2.0, 10.0]], dtype=tf.float64),
-                    3: tf.constant([[2.0, 9.0], [2.0, 8.0], [2.0, 7.0], [2.0, 6.0], [3.0, 6.0], [4.0, 6.0],
-                                    [5.0, 6.0], [5.0, 5.0], [6.0, 5.0], [7.0, 5.0], [8.0, 5.0], [9.0, 5.0],
-                                    [10.0, 5.0], [11.0, 5.0], [12.0, 5.0], [13.0, 5.0], [14.0, 5.0],
-                                    [15.0, 5.0]], dtype=tf.float64),
-                    -1: tf.constant([[14.0, 5.0], [13.0, 5.0], [12.0, 5.0], [11.0, 5.0], [10.0, 5.0], [9.0, 5.0],
-                                     [8.0, 5.0], [7.0, 5.0], [6.0, 5.0], [5.0, 5.0], [4.0, 5.0], [3.0, 5.0],
-                                     [2.0, 5.0], [2.0, 4.0], [2.0, 3.0]], dtype=tf.float64)}
+uav_schedules = {}
+for uav_idx in range(n_uavs):
+    ip_file = f'{ip_dir}{uav_idx}.log'
 
-uav_1_trajectory = {5: tf.constant([[24.0, 26.0], [24.0, 27.0], [24.0, 28.0], [24.0, 29.0], [23.0, 29.0],
-                                    [23.0, 30.0], [24.0, 30.0], [23.0, 30.0], [22.0, 30.0], [23.0, 30.0],
-                                    [22.0, 30.0], [21.0, 30.0], [20.0, 30.0], [19.0, 30.0], [19.0, 31.0],
-                                    [19.0, 32.0], [19.0, 33.0], [19.0, 34.0], [19.0, 35.0], [19.0, 36.0],
-                                    [19.0, 37.0], [19.0, 38.0], [19.0, 39.0], [18.0, 39.0],
-                                    [17.0, 39.0]], dtype=tf.float64),
-                    4: tf.constant([[16.0, 39.0], [15.0, 39.0], [14.0, 39.0], [13.0, 39.0], [12.0, 39.0],
-                                    [12.0, 40.0], [12.0, 41.0], [12.0, 42.0], [12.0, 43.0], [12.0, 44.0],
-                                    [12.0, 45.0], [12.0, 46.0], [12.0, 47.0], [12.0, 48.0], [11.0, 48.0],
-                                    [12.0, 48.0]], dtype=tf.float64),
-                    -1: tf.constant([[11.0, 48.0], [10.0, 48.0], [9.0, 48.0], [8.0, 48.0], [7.0, 48.0],
-                                     [6.0, 48.0], [5.0, 48.0], [4.0, 48.0], [3.0, 48.0], [2.0, 48.0],
-                                     [2.0, 47.0], [2.0, 46.0], [2.0, 45.0], [2.0, 44.0], [2.0, 43.0],
-                                     [2.0, 42.0], [2.0, 41.0], [2.0, 40.0], [2.0, 39.0], [2.0, 38.0],
-                                     [2.0, 37.0], [2.0, 36.0]], dtype=tf.float64)}
+    with open(ip_file, 'r') as file:
+        # noinspection RegExpUnnecessaryNonCapturingGroup
+        uav_schedules[uav_idx] = tf.strings.to_number(re.findall(r'[-+]?(?:\d*\.*\d+)',
+                                                                 file.readline().strip()), tf.int8)
 
-uav_2_trajectory = {6: tf.constant([[25.0, 25.0], [26.0, 25.0], [27.0, 25.0], [28.0, 25.0], [29.0, 25.0],
-                                    [30.0, 25.0], [31.0, 25.0], [32.0, 25.0], [35.0, 25.0], [40.0, 26.0],
-                                    [40.0, 27.0]], dtype=tf.float64),
-                    7: tf.constant([[33.0, 25.0], [34.0, 25.0], [36.0, 25.0], [37.0, 25.0],
-                                    [38.0, 25.0], [39.0, 25.0], [40.0, 25.0], [41.0, 27.0]], dtype=tf.float64),
-                    9: tf.constant([[41.0, 26.0], [42.0, 26.0], [42.0, 25.0], [43.0, 25.0], [44.0, 25.0],
-                                    [44.0, 24.0], [44.0, 23.0], [45.0, 23.0], [44.0, 22.0]], dtype=tf.float64),
-                    8: tf.constant([[44.0, 21.0], [44.0, 20.0], [44.0, 19.0], [44.0, 18.0], [44.0, 17.0], [44.0, 16.0],
-                                    [44.0, 15.0], [44.0, 14.0], [44.0, 13.0], [44.0, 12.0], [44.0, 11.0], [44.0, 10.0],
-                                    [44.0, 9.0]], dtype=tf.float64),
-                    -1: tf.constant([[44.0, 8.0], [44.0, 7.0], [44.0, 6.0], [44.0, 5.0], [44.0, 4.0],
-                                     [44.0, 3.0], [44.0, 2.0], [43.0, 2.0], [42.0, 2.0], [41.0, 2.0],
-                                     [40.0, 2.0], [39.0, 2.0], [38.0, 2.0], [37.0, 2.0], [36.0, 2.0],
-                                     [35.0, 2.0], [34.0, 2.0], [33.0, 2.0], [32.0, 2.0], [31.0, 2.0],
-                                     [30.0, 2.0], [29.0, 2.0]], dtype=tf.float64)}
+''' Corresponding UAV(s) trajectories '''
 
-# uav_positions = {0: uav_0_trajectory}
-# uav_positions = {0: uav_0_trajectory, 1: uav_1_trajectory}
-uav_positions = {0: uav_0_trajectory, 1: uav_1_trajectory, 2: uav_2_trajectory}
+uav_positions = {}
+for uav_idx in range(n_uavs):
+    uav_positions[uav_idx] = {}
+    for gn_idx in uav_schedules[uav_idx]:
+        ip_file = f'{ip_dir}{uav_idx}_{gn_idx}.log'
+
+        with open(ip_file, 'r') as file:
+            # noinspection RegExpUnnecessaryNonCapturingGroup
+            uav_positions[uav_idx][gn_idx] = tf.strings.to_number(re.findall(
+                r'-?\d*\.?\d+e[+-]?\d+|[-+]?(?:\d*\.*\d+)', file.readline().strip().replace('\\n', '')), tf.float64)
 
 """
 Configurations-III: Traffic generation model
@@ -347,13 +313,13 @@ Core operations
 """
 
 
-def multiple_uav_relays(payload_sizes, gn_alts, gn_coords):
+def multiple_uav_relays(payload_sizes, gn_coords):
     gu_delays = {k: {_k: {} for _k in v.keys()} for k, v in uav_positions.items()}
 
-    gu_xy_distances = {k: {_k: tf.norm(tf.subtract(gn_coords[_k] * scaling_factor, _v * scaling_factor), axis=1)
+    gu_xy_distances = {k: {_k: tf.norm(tf.subtract(gn_coords[_k], _v), axis=1)
                            for _k, _v in v.items()} for k, v in uav_positions.items()}
 
-    gu_heights = {k: {_k: tf.constant(abs(uav_height - gn_alts[_k]), shape=_v.shape, dtype=tf.float64)
+    gu_heights = {k: {_k: tf.constant(uav_height, shape=_v.shape, dtype=tf.float64)
                       for _k, _v in v.items()} for k, v in gu_xy_distances.items()}
 
     gu_distances = {k: {_k: tf.sqrt(tf.add(tf.square(gu_xy_distances[k][_k]), tf.square(gu_heights[k][_k])))
@@ -374,7 +340,7 @@ def multiple_uav_relays(payload_sizes, gn_alts, gn_coords):
 
 
 def evaluate():
-    delays = multiple_uav_relays(data_payload_sizes, gn_heights, gn_positions)
+    delays = multiple_uav_relays(data_payload_sizes, gn_positions)
 
     delays_mod = {p: {k: np.random.permutation(
         np.repeat([v[_k][p] for _k in v.keys()], num_req)) for k, v in delays.items()} for p in data_payload_sizes}

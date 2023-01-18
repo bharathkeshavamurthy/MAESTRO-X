@@ -174,9 +174,7 @@ if __name__ == '__main__':
     delays = tf.constant(payload_size, dtype=tf.float64) / r_avg
 
     for num in range(num_levels):
-        delay += min(delays[num],
-                     (payload_size / max_uav_decode_tgpt) +
-                     (payload_size / max_uav_forward_tgpt)) * ((2 * levels[num]) / (radius ** 2))
+        delay += min(delays[num], (payload_size / max_uav_decode_tgpt) + (payload_size / max_uav_forward_tgpt))
 
     print(f'[INFO] LowerBound main: The lower bound on GN service latencies '
-          f'for {payload_size / 1e6} Mb data payloads is computed to be {delay} seconds.')
+          f'for {payload_size / 1e6} Mb data payloads is computed to be {delay / num_levels} seconds.')

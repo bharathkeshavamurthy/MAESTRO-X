@@ -58,9 +58,9 @@ a, n_u, n_r, n_w = 1e3, 3, int(1e4), 1024
 agent_id = '1221d753-0bd1-477f-96c6-10899725037b'
 depl_env, rf, le_l, le_m, le_h = 'rural', n_u, 1, 10, 100
 ip_dir, op_dir = '../logs/policies/', '../logs/evaluations/'
+plotly.tools.set_credentials_file(username='<User_Name>', api_key='<API_Key>')
 decibel, linear = lambda _x: 10.0 * np.log10(_x), lambda _x: 10.0 ** (_x / 10.0)
 utip, v0, p1, p2, p3, v_min, v_max = 200.0, 7.2, 580.65, 790.6715, 0.0073, 0.0, 55.0
-plotly.tools.set_credentials_file(username='bkeshav1', api_key='BCvYNi3LNNXgfpDGEpo0')
 data_len, p_avg = [1e6, 10e6, 100e6][0], np.arange(start=1e3, stop=2.2e3, step=0.2e3, dtype=np.float64)[0]
 u0, u1, u2, th_c_min, th_c_max, th_c_num = [0.0, 500.0], [400.0, -300.0], [-400.0, -300.0], 0.0, 2 * pi, int(1e4)
 ntp_client, ntp_url, policy_file = ntplib.NTPClient(), 'pool.ntp.org', f'{ip_dir}{int(data_len / 1e6)}-{int(p_avg)}.log'

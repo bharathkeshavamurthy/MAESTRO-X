@@ -63,8 +63,9 @@ from plotly.validators.scatter.marker import SymbolValidator
 Configuration-II: Plotly API settings & instantiations
 """
 
-plotly.tools.set_credentials_file(username='bkeshava', api_key='OQ5WNonFBnFj3EFDw3K1')  # User Credentials
+plotly.tools.set_credentials_file(username='<User_Name>', api_key='<API_Key>')  # User Credentials
 raw_symbols = [val for i, val in enumerate(SymbolValidator().values) if (i % 2) == 1]  # Allowed marker symbols
+
 # noinspection SpellCheckingInspection
 colors = '''
     aliceblue, antiquewhite, aqua, aquamarine, azure,
@@ -607,8 +608,8 @@ class SMDPEvaluation(object):
             return
         # Normal routine call
         return (p_1 * (1 + ((3 * (v ** 2)) / (u_tip ** 2)))) + \
-               (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5) + \
-               (p_3 * (v ** 3))
+            (p_2 * (((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v_0 ** 2)))) ** 0.5) + \
+            (p_3 * (v ** 3))
 
     def __discretize_uav_radial_velocities(self, num_levels):
         """

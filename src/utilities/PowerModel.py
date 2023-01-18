@@ -16,7 +16,7 @@ import plotly.graph_objs as graph_objs
 """
 Configurations-I: Plotly API credentials
 """
-plotly.tools.set_credentials_file(username='bkeshav1', api_key='BCvYNi3LNNXgfpDGEpo0')
+plotly.tools.set_credentials_file(username='<User_Name>', api_key='<API_Key>')
 
 """
 Configurations-II: UAV mobility power consumption model
