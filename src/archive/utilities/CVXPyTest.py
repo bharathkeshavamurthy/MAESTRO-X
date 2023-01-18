@@ -61,7 +61,7 @@ UAV Power Consumption Evaluation Routine
 
 def mobility_power(v):
     return (p1 * (1 + ((3 * (v ** 2)) / (utip ** 2)))) + \
-           (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5) + (p3 * (v ** 3))
+        (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5) + (p3 * (v ** 3))
 
 
 """
@@ -70,8 +70,14 @@ Channel Model Routines
 
 
 def d(vec_1, vec_2): return norm(vec_1[:1] - vec_2[:1])
+
+
 def phi(vec_1, vec_2): return np.arctan(abs(vec_1[2] - vec_2[2]) / d(vec_1, vec_2))
+
+
 def plos(vec_1, vec_2): return 1 / (1 + z1 * np.exp(-z2 * (phi(vec_1, vec_2) - z1)))
+
+
 def params(vec_1, vec_2): return (alpha_los, beta_los) if plos(vec_1, vec_2) > 0.5 else (alpha_nlos, beta_nlos)
 
 
@@ -132,7 +138,7 @@ def surrogate_1(_m, tau, z_uavs_, z_gns_, z_uavs_t_):
 def surrogate_2(tau, z_uav_, z_uav_t_):
     m, d_loc_diff = num_uavs, tau * d(z_uav_, z_uav_t_) ** 2
     ph = ((snr_0 * (gain_aprx(z_uav_, z_uav_t_, z_bs) - gain(z_uav_t_, z_bs))) / (1 + snr_0 * gain(z_uav_t_, z_bs))) - \
-        d_loc_diff + ((snr_0 * -gain_loc_d(z_uav_t_, z_bs) * (z_uav_ - z_uav_t_)) / (1 + snr_0 * gain(z_uav_t_, z_bs)))
+         d_loc_diff + ((snr_0 * -gain_loc_d(z_uav_t_, z_bs) * (z_uav_ - z_uav_t_)) / (1 + snr_0 * gain(z_uav_t_, z_bs)))
     return bw * ph + throughput(z_uav_t_, z_bs)
 
 

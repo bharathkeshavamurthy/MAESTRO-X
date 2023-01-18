@@ -120,7 +120,7 @@ def evaluate_power_consumption(v):
     """
     return (p_1 * (1 + ((3 * (v ** 2)) / (u_tip ** 2)))) + (p_2 * ((((1 + ((v ** 4) / (4 * (v_0 ** 4)))) ** 0.5) -
                                                                     ((v ** 2) / (2 * (v_0 ** 2))))) ** 0.5) + \
-           (p_3 * (v ** 3))
+        (p_3 * (v ** 3))
 
 
 print(f'Hovering Power Consumption: {evaluate_power_consumption(0.0)}')

@@ -30,7 +30,7 @@ from simpy import Environment, Resource
 
 def mobility_pwr(v):
     return (p1 * (1 + ((3 * (v ** 2)) / (utip ** 2)))) + \
-           (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5) + (p3 * (v ** 3))
+        (p2 * (((1 + ((v ** 4) / (4 * (v0 ** 4)))) ** 0.5) - ((v ** 2) / (2 * (v0 ** 2)))) ** 0.5) + (p3 * (v ** 3))
 
 
 def wait(x_u, z_u):
