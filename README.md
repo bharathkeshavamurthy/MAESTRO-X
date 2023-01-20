@@ -1,5 +1,5 @@
 # MAESTRO-X
-Distributed Orchestration of Rotary-Wing UAV Relay Swarms via Semi-Markov Decision Processes (SMDPs)
+Distributed Orchestration of Rotary-Wing UAV-Relay Swarms via Semi-Markov Decision Processes (SMDPs)
 
 Multiscale Adaptive Energy-conscious Scheduling and TRajectory Optimization (eXtended)
 
